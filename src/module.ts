@@ -88,7 +88,7 @@ export default defineNuxtModule<ModuleOptions>({
     const appTitle = nuxt.options.app?.head?.title
     nuxt.options.runtimeConfig.public.feedback = {
       shortcut: options.shortcut || 'g-f',
-      enabled: options.enabled !== false,
+      enabled: options.enabled ?? true,
       app: typeof appTitle === 'string' && appTitle ? appTitle : undefined,
     }
 
@@ -123,8 +123,8 @@ export default defineNuxtModule<ModuleOptions>({
     // If the host supplied a path, re-export its default; otherwise default to anonymous.
     const resolveUserCode = options.resolveUserPath
       ? `export { default } from ${JSON.stringify(
-          createResolver(nuxt.options.rootDir).resolve(options.resolveUserPath),
-        )}`
+        createResolver(nuxt.options.rootDir).resolve(options.resolveUserPath),
+      )}`
       : 'export default async () => null'
 
     nuxt.hook('nitro:config', (nitroConfig) => {

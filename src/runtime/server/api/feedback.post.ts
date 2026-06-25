@@ -33,14 +33,10 @@ export default defineEventHandler(async (event): Promise<FeedbackResponse> => {
   const token = config.githubToken as string
 
   // Identity is resolved by the host; never throw on its behalf.
-  let user = null
-  try {
-    user = await resolveUser(event)
-  }
-  catch (error) {
+  const user = await resolveUser(event).catch((error) => {
     console.error('[feedback] resolveUser threw; treating as anonymous', error)
-    user = null
-  }
+    return null
+  })
 
   const email = body.email || undefined
 

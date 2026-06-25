@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { z } from 'zod'
-import { defineShortcuts, useRuntimeConfig, useToast } from '#imports'
+import { useRuntimeConfig } from '#imports'
+// `@nuxt/ui` is a peer dependency; import its composables from its public API so
+// the module typechecks in isolation. At runtime this resolves to the same
+// singleton the host auto-imports, so toasts surface through the host's <UApp>.
+import { defineShortcuts, useToast } from '@nuxt/ui/composables'
 import { useFeedback } from '../composables/useFeedback'
 import type { FeedbackType, PublicFeedbackConfig } from '../types'
 
@@ -111,7 +115,10 @@ async function onSubmit() {
         class="space-y-4"
         @submit="onSubmit"
       >
-        <UFormField name="type" label="Type">
+        <UFormField
+          name="type"
+          label="Type"
+        >
           <URadioGroup
             v-model="state.type"
             :items="typeItems"
@@ -119,7 +126,11 @@ async function onSubmit() {
           />
         </UFormField>
 
-        <UFormField name="message" label="Message" required>
+        <UFormField
+          name="message"
+          label="Message"
+          required
+        >
           <UTextarea
             v-model="state.message"
             :rows="5"
@@ -130,7 +141,11 @@ async function onSubmit() {
           />
         </UFormField>
 
-        <UFormField name="email" label="Email" hint="Optional">
+        <UFormField
+          name="email"
+          label="Email"
+          hint="Optional"
+        >
           <UInput
             v-model="state.email"
             type="email"

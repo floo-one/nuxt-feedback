@@ -1,84 +1,139 @@
-<!--
-Get your module up and running quickly.
+# @floo-one/nuxt-feedback
 
-Find and replace all on all files (CMD+SHIFT+F):
-- Name: My Module
-- Package name: my-module
-- Description: My new Nuxt module
--->
+An in-app feedback dialog for **Nuxt 4**, triggered by a keyboard shortcut. A user picks a type and submits:
 
-# My Module
+- 🐞 **Bug** → forwarded to **Sentry** (User Feedback API), falling back to a GitHub issue if Sentry isn't available
+- 💡 **Feature request** → created as a **GitHub Issue**
+- 💬 **General feedback** → created as a **GitHub Issue**
 
-[![npm version][npm-version-src]][npm-version-href]
-[![npm downloads][npm-downloads-src]][npm-downloads-href]
-[![License][license-src]][license-href]
-[![Nuxt][nuxt-src]][nuxt-href]
+It is **auth-agnostic** (you supply a server-side `resolveUser` hook — the module never imports your auth), and **Sentry is an optional peer dependency** that's detected at runtime, so the bug route degrades gracefully when it's absent.
 
-My new Nuxt module for doing amazing things.
+## Requirements
 
-- [✨ &nbsp;Release Notes](/CHANGELOG.md)
-<!-- - [🏀 Online playground](https://stackblitz.com/github/your-org/my-module?file=playground%2Fapp.vue) -->
-<!-- - [📖 &nbsp;Documentation](https://example.com) -->
+- Nuxt `>= 4.0.0`
+- `@nuxt/ui` `>= 4.0.0` (peer dependency — the dialog uses Nuxt UI v4 components)
+- _(optional)_ `@sentry/node` for the bug → Sentry route (any host already using `@sentry/nuxt` has this)
 
-## Features
+## Install
 
-<!-- Highlight some of the features your module provide here -->
-- ⛰ &nbsp;Foo
-- 🚠 &nbsp;Bar
-- 🌲 &nbsp;Baz
+This package is distributed as a local workspace link (not published yet). In a consumer app:
 
-## Quick Setup
-
-Install the module to your Nuxt application with one command:
-
-```bash
-npx nuxt module add my-module
+```jsonc
+// package.json
+{
+  "dependencies": {
+    "@floo-one/nuxt-feedback": "file:../path/to/nuxt-feedback"
+  }
+}
 ```
 
-That's it! You can now use My Module in your Nuxt app ✨
+```bash
+pnpm install
+```
 
+Then register it:
 
-## Contribution
+```ts
+// nuxt.config.ts
+export default defineNuxtConfig({
+  modules: ['@nuxt/ui', '@floo-one/nuxt-feedback'],
 
-<details>
-  <summary>Local development</summary>
-  
-  ```bash
-  # Install dependencies
-  npm install
-  
-  # Generate type stubs
-  npm run dev:prepare
-  
-  # Develop with the playground
-  npm run dev
-  
-  # Build the playground
-  npm run dev:build
-  
-  # Run ESLint
-  npm run lint
-  
-  # Run Vitest
-  npm run test
-  npm run test:watch
-  
-  # Release new version
-  npm run release
-  ```
+  feedback: {
+    shortcut: 'g-f',
+    github: { repo: 'your-org/your-repo' },
+    sentry: true,
+    resolveUserPath: './server/feedback-user.ts',
+  },
+})
+```
 
-</details>
+That's it — a `<FeedbackDialog>` is auto-mounted once, and pressing the shortcut (`g` then `f`) opens it. You can also open it programmatically from anywhere:
 
+```ts
+const { open } = useFeedback()
+open('bug') // or 'feature' | 'feedback'; omit to keep the last type
+```
 
-<!-- Badges -->
-[npm-version-src]: https://img.shields.io/npm/v/my-module/latest.svg?style=flat&colorA=020420&colorB=00DC82
-[npm-version-href]: https://npmjs.com/package/my-module
+## Module options
 
-[npm-downloads-src]: https://img.shields.io/npm/dm/my-module.svg?style=flat&colorA=020420&colorB=00DC82
-[npm-downloads-href]: https://npm.chart.dev/my-module
+| Option            | Type                                          | Default                                       | Description                                                                                              |
+| ----------------- | --------------------------------------------- | --------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `shortcut`        | `string`                                      | `'g-f'`                                        | Keybind in [Nuxt UI `defineShortcuts`](https://ui.nuxt.com/composables/define-shortcuts) syntax. Choose one that doesn't collide with the host's chords. |
+| `github.repo`     | `string`                                      | `''`                                           | Target repo for issues, as `"owner/name"`. Required for feature/feedback (and the bug fallback).         |
+| `github.labels`   | `{ feature?: string, feedback?: string }`     | `{ feature: 'enhancement', feedback: 'feedback' }` | Labels applied to created issues. (The bug fallback always uses the `bug` label.)                  |
+| `sentry`          | `boolean`                                     | `true`                                         | `true` auto-detects the host's server Sentry SDK for bugs; `false` disables it (bugs go straight to GitHub). |
+| `resolveUserPath` | `string`                                      | _unset_                                        | Path (relative to the project root) to a host file that resolves reporter identity. See below.           |
+| `enabled`         | `boolean`                                     | `true`                                         | Disable the module entirely (e.g. per-environment).                                                      |
 
-[license-src]: https://img.shields.io/npm/l/my-module.svg?style=flat&colorA=020420&colorB=00DC82
-[license-href]: https://npmjs.com/package/my-module
+> **Security:** the GitHub token is **never** a module option. It's read from private `runtimeConfig` only (see env vars). It never reaches the client bundle and never appears in API responses or logs.
 
-[nuxt-src]: https://img.shields.io/badge/Nuxt-020420?logo=nuxt
-[nuxt-href]: https://nuxt.com
+## Environment variables
+
+| Variable            | Where                | Description                                                                                              |
+| ------------------- | -------------------- | -------------------------------------------------------------------------------------------------------- |
+| `NUXT_GITHUB_TOKEN` | **server-only**      | A fine-grained GitHub PAT scoped to the target repo with **`Issues: write`** permission. Read via `runtimeConfig.githubToken`. Set it in your hosting platform's secret store (e.g. the Coolify UI) — never commit it. |
+
+For consumers that already run Sentry via `@sentry/nuxt`, no extra Sentry env is needed: the module reuses the host's already-initialised server Sentry client in-process.
+
+## The `resolveUser` contract
+
+The module is **auth-agnostic**. To attach reporter identity, point `resolveUserPath` at a file that **default-exports** an async function `(event) => ({ id, email, name } | null)`. It runs server-side, receives the H3 `event`, and must **never throw** (return `null` for anonymous/logged-out users).
+
+```ts
+// server/feedback-user.ts
+import type { H3Event } from 'h3'
+
+export default async function resolveUser(event: H3Event) {
+  // Use whatever auth your app already has — the module never imports it.
+  const session = await getAuthSession(event) // example: better-auth, auto-imported
+  return session?.user
+    ? { id: session.user.id, email: session.user.email, name: session.user.name }
+    : null
+}
+```
+
+- The returned identity is attached to the GitHub issue body and to the Sentry feedback (`name`/`email`).
+- When `resolveUserPath` is unset, identity resolves to `null` and reports are filed as `anonymous`.
+- The optional email field in the dialog is a fallback contact for anonymous users; resolved identity always takes precedence.
+
+## How it behaves
+
+- **Trigger:** a client plugin registers the shortcut and mounts a single `<FeedbackDialog>` into `<body>`, reusing the Nuxt app context so its toasts surface through your existing `<UApp>` toaster.
+- **Submit:** `POST /api/__feedback` with `{ type, message, email?, context }`. The body is validated with **zod** (required, non-empty, ≤ 5000 chars).
+- **Routing:**
+  - `bug` → Sentry (`captureFeedback`, falling back to `captureMessage` on older SDKs). If `@sentry/node` is missing, disabled, or not initialised, the bug is filed as a **GitHub issue labelled `bug`** instead — a report is never silently dropped.
+  - `feature` / `feedback` → a GitHub issue (raw REST via `$fetch`, no Octokit).
+- **Failures** return a clean `{ ok: false }` with a `502`-class status; details are logged server-side only.
+
+## Per-app integration guide
+
+1. **Add the dependency** (local link until published):
+   ```jsonc
+   // apps/web/package.json
+   { "dependencies": { "@floo-one/nuxt-feedback": "file:../../path/to/nuxt-feedback" } }
+   ```
+   then `pnpm install`.
+2. **Register and configure** the module in `nuxt.config.ts` (`modules` + the `feedback` key). Pick a `shortcut` that doesn't collide with existing `defineShortcuts` chords in your app.
+3. **Create the identity hook** at the path you set in `resolveUserPath` (see the contract above). Wire it to your app's existing auth; return `null` when logged out; never throw.
+4. **Set the secret:** add `NUXT_GITHUB_TOKEN` to `.env.example` (documented as server-only) and inject the real value via your hosting platform's secret store.
+5. **Verify:**
+   - the shortcut opens the dialog and a submit shows a success toast;
+   - a **feature/feedback** submit creates a GitHub issue in the configured repo with the right label;
+   - a **bug** submit appears as User Feedback in your Sentry project (or, with Sentry removed, falls back to a GitHub issue labelled `bug` — no 500).
+
+## Local development
+
+```bash
+pnpm install
+pnpm dev:prepare   # generate type stubs
+pnpm dev           # run the playground
+pnpm dev:build     # production-build the playground
+pnpm lint
+pnpm test          # vitest
+pnpm test:types    # vue-tsc (module + playground)
+pnpm prepack       # build the distributable module
+```
+
+## License
+
+MIT

@@ -15,13 +15,28 @@ const { open } = useFeedback()
       </div>
 
       <div class="flex flex-wrap gap-3">
-        <UButton icon="i-lucide-bug" color="error" variant="soft" @click="open('bug')">
+        <UButton
+          icon="i-lucide-bug"
+          color="error"
+          variant="soft"
+          @click="open('bug')"
+        >
           Report a bug
         </UButton>
-        <UButton icon="i-lucide-lightbulb" color="primary" variant="soft" @click="open('feature')">
+        <UButton
+          icon="i-lucide-lightbulb"
+          color="primary"
+          variant="soft"
+          @click="open('feature')"
+        >
           Request a feature
         </UButton>
-        <UButton icon="i-lucide-message-circle" color="neutral" variant="soft" @click="open('feedback')">
+        <UButton
+          icon="i-lucide-message-circle"
+          color="neutral"
+          variant="soft"
+          @click="open('feedback')"
+        >
           Share feedback
         </UButton>
       </div>
