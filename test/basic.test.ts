@@ -7,10 +7,10 @@ describe('github issue formatting', () => {
     expect(buildTitle('feature', 'Dark mode\nplease')).toBe('[Feature] Dark mode')
 
     const long = 'x'.repeat(200)
-    const title = buildTitle('feedback', long)
-    expect(title.startsWith('[Feedback] ')).toBe(true)
+    const title = buildTitle('feature', long)
+    expect(title.startsWith('[Feature] ')).toBe(true)
     expect(title.endsWith('…')).toBe(true)
-    expect(title.length).toBeLessThanOrEqual('[Feedback] '.length + 80)
+    expect(title.length).toBeLessThanOrEqual('[Feature] '.length + 80)
   })
 
   it('formats the reporter from identity, falling back to anonymous', () => {

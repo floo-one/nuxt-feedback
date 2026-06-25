@@ -14,7 +14,6 @@ export interface CreateIssueArgs {
 const TYPE_PREFIX: Record<FeedbackType, string> = {
   bug: '[Bug]',
   feature: '[Feature]',
-  feedback: '[Feedback]',
 }
 
 export function buildTitle(type: FeedbackType, message: string): string {

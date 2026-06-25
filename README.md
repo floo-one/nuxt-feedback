@@ -3,10 +3,9 @@
 An in-app feedback dialog for **Nuxt 4**, triggered by a keyboard shortcut. A user picks a type and submits:
 
 - 🐞 **Bug** → forwarded to **Sentry** (User Feedback API), falling back to a GitHub issue if Sentry isn't available
-- 💡 **Feature request** → created as a **GitHub Issue**
-- 💬 **General feedback** → created as a **GitHub Issue**
+- 💡 **Idea** (feature request) → created as a **GitHub Issue**
 
-It is **auth-agnostic** (you supply a server-side `resolveUser` hook — the module never imports your auth), and **Sentry is an optional peer dependency** that's detected at runtime, so the bug route degrades gracefully when it's absent.
+It is **auth-agnostic** (you supply a server-side `resolveUser` hook — the module never imports your auth), and **Sentry is an optional peer dependency** that's detected at runtime, so the bug route degrades gracefully when it's absent. When the host already knows who the user is, the dialog skips the email field.
 
 ## Requirements
 
@@ -40,7 +39,7 @@ That's it — a `<FeedbackDialog>` is auto-mounted once, and pressing the shortc
 
 ```ts
 const { open } = useFeedback()
-open('bug') // or 'feature' | 'feedback'; omit to keep the last type
+open('bug') // or 'feature'; omit to keep the last type
 ```
 
 ## Module options
@@ -49,7 +48,7 @@ open('bug') // or 'feature' | 'feedback'; omit to keep the last type
 | ----------------- | --------------------------------------------- | --------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | `shortcut`        | `string`                                      | `'g-f'`                                        | Keybind in [Nuxt UI `defineShortcuts`](https://ui.nuxt.com/composables/define-shortcuts) syntax. Choose one that doesn't collide with the host's chords. |
 | `github.repo`     | `string`                                      | `''`                                           | Target repo for issues, as `"owner/name"`. Required for feature/feedback (and the bug fallback).         |
-| `github.labels`   | `{ feature?: string, feedback?: string }`     | `{ feature: 'enhancement', feedback: 'feedback' }` | Labels applied to created issues. (The bug fallback always uses the `bug` label.)                  |
+| `github.labels`   | `{ feature?: string }`                        | `{ feature: 'enhancement' }`                   | Label applied to feature/idea issues. (The bug fallback always uses the `bug` label.)                  |
 | `sentry`          | `boolean`                                     | `true`                                         | `true` auto-detects the host's server Sentry SDK for bugs; `false` disables it (bugs go straight to GitHub). |
 | `resolveUserPath` | `string`                                      | _unset_                                        | Path (relative to the project root) to a host file that resolves reporter identity. See below.           |
 | `enabled`         | `boolean`                                     | `true`                                         | Disable the module entirely (e.g. per-environment).                                                      |
@@ -83,7 +82,7 @@ export default async function resolveUser(event: H3Event) {
 
 - The returned identity is attached to the GitHub issue body and to the Sentry feedback (`name`/`email`).
 - When `resolveUserPath` is unset, identity resolves to `null` and reports are filed as `anonymous`.
-- The optional email field in the dialog is a fallback contact for anonymous users; resolved identity always takes precedence.
+- The dialog asks the server (`GET /api/__feedback/identity`) whether the user is known. If they are, the **email field is hidden**; it only appears as a fallback contact for anonymous users. Resolved identity always takes precedence.
 
 ## How it behaves
 
@@ -91,7 +90,7 @@ export default async function resolveUser(event: H3Event) {
 - **Submit:** `POST /api/__feedback` with `{ type, message, email?, context }`. The body is validated with **zod** (required, non-empty, ≤ 5000 chars).
 - **Routing:**
   - `bug` → Sentry (`captureFeedback`, falling back to `captureMessage` on older SDKs). If `@sentry/node` is missing, disabled, or not initialised, the bug is filed as a **GitHub issue labelled `bug`** instead — a report is never silently dropped.
-  - `feature` / `feedback` → a GitHub issue (raw REST via `$fetch`, no Octokit).
+  - `feature` (idea) → a GitHub issue (raw REST via `$fetch`, no Octokit).
 - **Failures** return a clean `{ ok: false }` with a `502`-class status; details are logged server-side only.
 
 ## Per-app integration guide

@@ -29,15 +29,7 @@ const { open } = useFeedback()
           variant="soft"
           @click="open('feature')"
         >
-          Request a feature
-        </UButton>
-        <UButton
-          icon="i-lucide-message-circle"
-          color="neutral"
-          variant="soft"
-          @click="open('feedback')"
-        >
-          Share feedback
+          Share an idea
         </UButton>
       </div>
     </UContainer>

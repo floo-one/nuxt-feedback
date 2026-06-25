@@ -5,7 +5,7 @@
  * stay free of any runtime imports (types only).
  */
 
-export type FeedbackType = 'bug' | 'feature' | 'feedback'
+export type FeedbackType = 'bug' | 'feature'
 
 export interface FeedbackContext {
   /** Page URL the feedback was sent from. */
@@ -58,7 +58,12 @@ export interface PrivateFeedbackConfig {
     labels: {
       bug: string
       feature: string
-      feedback: string
     }
   }
+}
+
+/** Response from the identity endpoint — tells the client whether to ask for an email. */
+export interface FeedbackIdentity {
+  /** True when the host's resolveUser hook returned a user for this request. */
+  identified: boolean
 }

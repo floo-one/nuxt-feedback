@@ -1,6 +1,6 @@
 {
   "name": "@floo-one/nuxt-feedback",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Drop-in in-app feedback dialog for Nuxt 4 — bugs to Sentry, feature requests and feedback to GitHub Issues.",
   "repository": {
     "type": "git",

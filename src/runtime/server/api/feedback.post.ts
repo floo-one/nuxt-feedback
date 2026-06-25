@@ -7,7 +7,7 @@ import { captureBugInSentry } from '../lib/sentry'
 import type { FeedbackResponse, PrivateFeedbackConfig } from '../../types'
 
 const bodySchema = z.object({
-  type: z.enum(['bug', 'feature', 'feedback']),
+  type: z.enum(['bug', 'feature']),
   message: z
     .string()
     .trim()
@@ -64,15 +64,13 @@ export default defineEventHandler(async (event): Promise<FeedbackResponse> => {
       return { ok: true, channel: 'github', fallback: true }
     }
 
-    // feature | feedback → GitHub issue
-    const label
-      = body.type === 'feature' ? feedback.github.labels.feature : feedback.github.labels.feedback
+    // feature → GitHub issue
     await createGitHubIssue({
       repo: feedback.github.repo,
       token,
-      type: body.type,
+      type: 'feature',
       message: body.message,
-      label,
+      label: feedback.github.labels.feature,
       email,
       user,
       context: body.context,

@@ -15,12 +15,11 @@ export interface ModuleOptions {
    */
   shortcut?: string
   github?: {
-    /** Target repository for issues, as `"owner/name"`. Required for feature/feedback. */
+    /** Target repository for issues, as `"owner/name"`. Required for feature requests. */
     repo: string
-    /** Issue labels. Defaults: feature → `enhancement`, feedback → `feedback`. */
+    /** Issue labels. Default: feature → `enhancement` (bugs that fall back use `bug`). */
     labels?: {
       feature?: string
-      feedback?: string
     }
   }
   /**
@@ -54,7 +53,6 @@ export default defineNuxtModule<ModuleOptions>({
       repo: '',
       labels: {
         feature: 'enhancement',
-        feedback: 'feedback',
       },
     },
   },
@@ -79,7 +77,6 @@ export default defineNuxtModule<ModuleOptions>({
         labels: {
           bug: 'bug',
           feature: options.github?.labels?.feature || 'enhancement',
-          feedback: options.github?.labels?.feedback || 'feedback',
         },
       },
     }
@@ -111,11 +108,17 @@ export default defineNuxtModule<ModuleOptions>({
       mode: 'client',
     })
 
-    // ---- Server API route ---------------------------------------------------
+    // ---- Server API routes --------------------------------------------------
     addServerHandler({
       route: '/api/__feedback',
       method: 'post',
       handler: resolver.resolve('./runtime/server/api/feedback.post'),
+    })
+    // Lets the client know if the user is already identified (to skip the email field).
+    addServerHandler({
+      route: '/api/__feedback/identity',
+      method: 'get',
+      handler: resolver.resolve('./runtime/server/api/identity.get'),
     })
 
     // ---- resolveUser virtual module -----------------------------------------
