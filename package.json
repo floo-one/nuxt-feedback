@@ -1,0 +1,65 @@
+{
+  "name": "@floo-one/nuxt-feedback",
+  "version": "0.1.0",
+  "description": "Drop-in in-app feedback dialog for Nuxt 4 — bugs to Sentry, feature requests and feedback to GitHub Issues.",
+  "repository": "floo-one/nuxt-feedback",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/types.d.mts",
+      "import": "./dist/module.mjs"
+    }
+  },
+  "main": "./dist/module.mjs",
+  "typesVersions": {
+    "*": {
+      ".": [
+        "./dist/types.d.mts"
+      ]
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "prepack": "nuxt-module-build build",
+    "dev": "pnpm run dev:prepare && nuxt dev playground",
+    "dev:build": "nuxt build playground",
+    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground",
+    "release": "pnpm run lint && pnpm run test && pnpm run prepack && changelogen --release && npm publish && git push --follow-tags",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@nuxt/kit": "^4.4.8",
+    "zod": "^4.3.6"
+  },
+  "peerDependencies": {
+    "@nuxt/ui": ">=4.0.0",
+    "@sentry/node": ">=8.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@sentry/node": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@nuxt/devtools": "^3.2.4",
+    "@nuxt/eslint-config": "^1.15.2",
+    "@nuxt/module-builder": "^1.0.2",
+    "@nuxt/schema": "^4.4.8",
+    "@nuxt/test-utils": "^4.0.3",
+    "@nuxt/ui": "^4.9.0",
+    "@sentry/node": "^10.60.0",
+    "@types/node": "latest",
+    "changelogen": "^0.6.2",
+    "eslint": "^10.4.1",
+    "nuxt": "^4.4.8",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.8",
+    "vue-tsc": "^3.3.3"
+  }
+}
