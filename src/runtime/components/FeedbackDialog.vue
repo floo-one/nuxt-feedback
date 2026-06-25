@@ -134,7 +134,6 @@ async function onSubmit() {
           <UTextarea
             v-model="state.message"
             :rows="5"
-            autoresize
             autofocus
             class="w-full"
             placeholder="Describe what happened, or what you'd like to see…"
