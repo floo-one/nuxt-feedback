@@ -14,9 +14,7 @@ node_modules
 **/.yarn/*state*
 
 # Generated dirs
-# NOTE: dist/ is intentionally committed so the package is installable directly
-# from git (no registry publish yet). Rebuilt via `pnpm prepack`.
-# dist
+dist
 
 # Internal build brief — not part of the published module.
 MASTER_PROMPT.md

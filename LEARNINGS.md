@@ -66,13 +66,19 @@ don't re-discover these.
 - pnpm 11 manages build-script approval via an `allowBuilds:` map in
   `pnpm-workspace.yaml` (approve `esbuild`, `@parcel/watcher`, `unrs-resolver`,
   `vue-demi`), not the old `.npmrc` `legacy-peer-deps`.
-- **No registry publish yet** (npm not authenticated; the GitHub OAuth token lacks
-  `write:packages`). Distributing as a **git-installable** repo instead: commit the
-  built `dist/`, and hosts depend on `github:floo-one/nuxt-feedback`. pnpm pins the
-  exact commit in the lockfile and skips devDeps (no `prepare` script needed because
-  `dist/` is present). Rebuild + commit `dist/` after any change.
-- To later publish to npm: `npm login`, ensure the `@floo-one` scope is owned, add
-  `"publishConfig": { "access": "public" }`, then `pnpm prepack && npm publish`.
+- **Published to npm** as `@floo-one/nuxt-feedback` (public, user scope owned by
+  `floo-one`). Using pnpm everywhere is a reason *for* npm, not against — pnpm installs
+  from the registry natively, so hosts use a clean semver dep (`^0.1.0`) and `dist/` is
+  built on publish via `prepack` (no longer committed to git). The earlier
+  `github:floo-one/nuxt-feedback` git-URL approach was only a stopgap before auth.
+- **`publishConfig.access: public`** is required (scoped packages default to private).
+- **2FA gotcha:** the account has 2FA, so every `npm publish` needs a fresh OTP —
+  *being logged in is not enough*. Run `npm publish --otp=<code>`, complete the browser
+  flow, or use a **Granular Access Token** (Packages read+write) to bypass OTP in CI.
+- Publish flow that works from clean: `pnpm dev:prepare` (so `prepack`'s build finds
+  `.nuxt/tsconfig.json`) → `npm publish --access public`. Bump the version for each
+  release; npm won't overwrite an existing version (so README/doc-only changes reach the
+  npm page only on the next version bump).
 
 ## Host realities that differed from assumptions
 

@@ -16,19 +16,8 @@ It is **auth-agnostic** (you supply a server-side `resolveUser` hook — the mod
 
 ## Install
 
-This package is distributed as a local workspace link (not published yet). In a consumer app:
-
-```jsonc
-// package.json
-{
-  "dependencies": {
-    "@floo-one/nuxt-feedback": "file:../path/to/nuxt-feedback"
-  }
-}
-```
-
 ```bash
-pnpm install
+pnpm add @floo-one/nuxt-feedback
 ```
 
 Then register it:
@@ -107,12 +96,7 @@ export default async function resolveUser(event: H3Event) {
 
 ## Per-app integration guide
 
-1. **Add the dependency** (local link until published):
-   ```jsonc
-   // apps/web/package.json
-   { "dependencies": { "@floo-one/nuxt-feedback": "file:../../path/to/nuxt-feedback" } }
-   ```
-   then `pnpm install`.
+1. **Add the dependency:** `pnpm add @floo-one/nuxt-feedback` (in the deployable app, e.g. `apps/web`).
 2. **Register and configure** the module in `nuxt.config.ts` (`modules` + the `feedback` key). Pick a `shortcut` that doesn't collide with existing `defineShortcuts` chords in your app.
 3. **Create the identity hook** at the path you set in `resolveUserPath` (see the contract above). Wire it to your app's existing auth; return `null` when logged out; never throw.
 4. **Set the secret:** add `NUXT_GITHUB_TOKEN` to `.env.example` (documented as server-only) and inject the real value via your hosting platform's secret store.
