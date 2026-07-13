@@ -2,7 +2,8 @@ import { defineEventHandler, readValidatedBody, setResponseStatus } from 'h3'
 import { z } from 'zod'
 import { useRuntimeConfig } from '#imports'
 import resolveUser from '#feedback/resolve-user'
-import { createGitHubIssue } from '../lib/github'
+import resolveApp from '#feedback/resolve-app'
+import { buildLabels, createGitHubIssue } from '../lib/github'
 import { captureBugInSentry } from '../lib/sentry'
 import type { FeedbackResponse, PrivateFeedbackConfig } from '../../types'
 
@@ -19,6 +20,10 @@ const bodySchema = z.object({
       url: z.string().optional(),
       userAgent: z.string().optional(),
       app: z.string().optional(),
+      // Never trust client-supplied lengths: cap version and the console buffer.
+      version: z.string().max(200).optional(),
+      severity: z.enum(['blocking', 'annoying', 'cosmetic']).optional(),
+      consoleErrors: z.array(z.string().max(500)).max(20).optional(),
       ts: z.string().optional(),
     })
     .partial()
@@ -38,7 +43,19 @@ export default defineEventHandler(async (event): Promise<FeedbackResponse> => {
     return null
   })
 
+  // App bucket is resolved by the host too (route→bucket); fall back to context.app.
+  const app = (await resolveApp(event, body.context).catch((error) => {
+    console.error('[feedback] resolveApp threw; ignoring', error)
+    return null
+  })) || body.context?.app || null
+
   const email = body.email || undefined
+  const labels = buildLabels({
+    type: body.type,
+    app,
+    severity: body.context?.severity,
+    config: feedback.github.labels,
+  })
 
   try {
     if (body.type === 'bug') {
@@ -51,31 +68,33 @@ export default defineEventHandler(async (event): Promise<FeedbackResponse> => {
 
       // Sentry unavailable/disabled: never drop a bug — file it as a GitHub issue.
       console.warn('[feedback] bug route falling back to GitHub issue')
-      await createGitHubIssue({
+      const issue = await createGitHubIssue({
         repo: feedback.github.repo,
         token,
         type: 'bug',
         message: body.message,
-        label: feedback.github.labels.bug,
+        labels,
+        app,
         email,
         user,
         context: body.context,
       })
-      return { ok: true, channel: 'github', fallback: true }
+      return { ok: true, channel: 'github', fallback: true, issue: { number: issue.number, url: issue.html_url } }
     }
 
     // feature → GitHub issue
-    await createGitHubIssue({
+    const issue = await createGitHubIssue({
       repo: feedback.github.repo,
       token,
       type: 'feature',
       message: body.message,
-      label: feedback.github.labels.feature,
+      labels,
+      app,
       email,
       user,
       context: body.context,
     })
-    return { ok: true, channel: 'github' }
+    return { ok: true, channel: 'github', issue: { number: issue.number, url: issue.html_url } }
   }
   catch (error) {
     // Log server-side; return a clean response that leaks no provider internals.

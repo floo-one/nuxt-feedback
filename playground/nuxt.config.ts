@@ -9,13 +9,17 @@ export default defineNuxtConfig({
   },
   compatibilityDate: 'latest',
 
-  // Mirrors a real GLE host: a test repo + a (fake) server-side identity hook.
+  // Mirrors a real GLE host: a test repo, server-side identity + app hooks, a
+  // build version, and the prefixed label scheme (activated by `labels.base`).
   feedback: {
     shortcut: 'g-f',
     sentry: true,
+    version: 'playground-dev',
     github: {
       repo: 'floo-one/nuxt-feedback',
+      labels: { base: 'feedback' },
     },
     resolveUserPath: './server/feedback-user.ts',
+    resolveAppPath: './server/feedback-app.ts',
   },
 })

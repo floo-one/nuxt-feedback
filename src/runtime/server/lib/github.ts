@@ -1,11 +1,13 @@
-import type { FeedbackContext, FeedbackType, ResolvedUser } from '../../types'
+import type { FeedbackContext, FeedbackSeverity, FeedbackType, LabelConfig, ResolvedUser } from '../../types'
 
 export interface CreateIssueArgs {
   repo: string
   token: string
   type: FeedbackType
   message: string
-  label: string
+  labels: string[]
+  /** Resolved app bucket (from the host hook or `context.app`), for the body. */
+  app?: string | null
   email?: string
   user: ResolvedUser | null
   context?: FeedbackContext
@@ -14,6 +16,35 @@ export interface CreateIssueArgs {
 const TYPE_PREFIX: Record<FeedbackType, string> = {
   bug: '[Bug]',
   feature: '[Feature]',
+}
+
+/** Human label for the type in the prefixed scheme: `feature` reads as `idea`. */
+const TYPE_SLUG: Record<FeedbackType, string> = {
+  bug: 'bug',
+  feature: 'idea',
+}
+
+/**
+ * Build the issue labels from the resolved config.
+ * Legacy scheme → a single `bug`/`feature` label. Prefixed scheme → `base`,
+ * `type:<slug>`, `app:<bucket>` (when resolved), and `severity:<level>` (bugs only).
+ */
+export function buildLabels(args: {
+  type: FeedbackType
+  app?: string | null
+  severity?: FeedbackSeverity
+  config: LabelConfig
+}): string[] {
+  const { type, app, severity, config } = args
+  if (!config.prefixed) {
+    return [type === 'bug' ? config.bug : config.feature]
+  }
+  const labels: string[] = []
+  if (config.base) labels.push(config.base)
+  labels.push(`${config.typePrefix}${TYPE_SLUG[type]}`)
+  if (app) labels.push(`${config.appPrefix}${app}`)
+  if (type === 'bug' && severity) labels.push(`${config.severityPrefix}${severity}`)
+  return labels
 }
 
 export function buildTitle(type: FeedbackType, message: string): string {
@@ -34,18 +65,34 @@ export function buildReporter(user: ResolvedUser | null, email?: string): string
   return parts.join(' ') || 'anonymous'
 }
 
-function buildBody(args: CreateIssueArgs): string {
-  const { message, user, email, context } = args
+export function buildBody(args: CreateIssueArgs): string {
+  const { message, user, email, context, app, type } = args
   const lines = [
     message.trim(),
     '',
     '---',
     `**Reporter:** ${buildReporter(user, email)}`,
   ]
-  if (context?.app) lines.push(`**App:** ${context.app}`)
+  const appName = app || context?.app
+  if (appName) lines.push(`**App:** ${appName}`)
+  if (type === 'bug' && context?.severity) lines.push(`**Severity:** ${context.severity}`)
   if (context?.url) lines.push(`**URL:** ${context.url}`)
+  if (context?.version) lines.push(`**Version:** ${context.version}`)
   if (context?.userAgent) lines.push(`**User agent:** ${context.userAgent}`)
   lines.push(`**Submitted:** ${context?.ts || new Date().toISOString()}`)
+
+  // Bugs carry a client-side console-error ring buffer. Render it explicitly
+  // (including "none captured") so triagers know whether it was empty vs absent.
+  if (type === 'bug' && context?.consoleErrors) {
+    lines.push('', '**Recent console errors:**')
+    if (context.consoleErrors.length > 0) {
+      lines.push('```', ...context.consoleErrors, '```')
+    }
+    else {
+      lines.push('_none captured_')
+    }
+  }
+
   lines.push('', '_Filed via @floo-one/nuxt-feedback._')
   return lines.join('\n')
 }
@@ -80,7 +127,7 @@ export async function createGitHubIssue(args: CreateIssueArgs): Promise<GitHubIs
     body: {
       title: buildTitle(args.type, args.message),
       body: buildBody(args),
-      labels: args.label ? [args.label] : [],
+      labels: args.labels,
     },
   })
 }

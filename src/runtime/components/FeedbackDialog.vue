@@ -7,7 +7,8 @@ import { useRuntimeConfig } from '#imports'
 // singleton the host auto-imports, so toasts surface through the host's <UApp>.
 import { defineShortcuts, useToast } from '@nuxt/ui/composables'
 import { useFeedback } from '../composables/useFeedback'
-import type { FeedbackType, PublicFeedbackConfig } from '../types'
+import { getConsoleErrors } from '../utils/consoleBuffer'
+import type { FeedbackSeverity, FeedbackType, PublicFeedbackConfig } from '../types'
 
 const { isOpen, type, submit, close, fetchIdentity } = useFeedback()
 const toast = useToast()
@@ -18,16 +19,23 @@ const typeItems = [
   { label: 'Idea', value: 'feature', icon: 'i-lucide-lightbulb' },
 ] satisfies Array<{ label: string, value: FeedbackType, icon: string }>
 
+const severityItems = [
+  { label: 'Blocking', value: 'blocking' },
+  { label: 'Annoying', value: 'annoying' },
+  { label: 'Cosmetic', value: 'cosmetic' },
+] satisfies Array<{ label: string, value: FeedbackSeverity }>
+
 const schema = z.object({
   type: z.enum(['bug', 'feature']),
   message: z.string().trim().min(1, 'Add a quick note first').max(5000, 'That\'s a bit long'),
   email: z.union([z.literal(''), z.email('That email looks off')]).optional(),
 })
 
-const state = reactive<{ type: FeedbackType, message: string, email: string }>({
+const state = reactive<{ type: FeedbackType, message: string, email: string, severity: FeedbackSeverity }>({
   type: type.value,
   message: '',
   email: '',
+  severity: 'annoying',
 })
 
 // Keep the tabs in sync when opened programmatically with a type.
@@ -64,8 +72,9 @@ const current = computed(() => copy[state.type])
 
 async function onSubmit() {
   loading.value = true
+  const isBug = state.type === 'bug'
   try {
-    await submit({
+    const res = await submit({
       type: state.type,
       message: state.message,
       email: state.email || undefined,
@@ -73,10 +82,29 @@ async function onSubmit() {
         url: window.location.href,
         userAgent: navigator.userAgent,
         app: config?.app,
+        version: config?.version,
         ts: new Date().toISOString(),
+        // Bug-only signal: severity + a snapshot of recent console errors.
+        ...(isBug ? { severity: state.severity, consoleErrors: getConsoleErrors() } : {}),
       },
     })
-    toast.add({ title: 'Got it — thanks! 🙌', color: 'success', icon: 'i-lucide-circle-check' })
+    const issue = res?.issue
+    toast.add({
+      title: issue ? `Filed as #${issue.number} — thanks! 🙌` : 'Got it — thanks! 🙌',
+      color: 'success',
+      icon: 'i-lucide-circle-check',
+      actions: issue
+        ? [{
+            label: 'View',
+            icon: 'i-lucide-external-link',
+            color: 'neutral',
+            variant: 'outline',
+            onClick: () => {
+              window.open(issue.url, '_blank', 'noopener')
+            },
+          }]
+        : undefined,
+    })
     state.message = ''
     state.email = ''
     close()
@@ -115,6 +143,18 @@ async function onSubmit() {
           color="primary"
           class="w-full"
         />
+
+        <UFormField
+          v-if="state.type === 'bug'"
+          name="severity"
+          label="Severity"
+        >
+          <USelect
+            v-model="state.severity"
+            :items="severityItems"
+            class="w-full"
+          />
+        </UFormField>
 
         <UFormField name="message">
           <UTextarea
