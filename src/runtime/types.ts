@@ -7,6 +7,9 @@
 
 export type FeedbackType = 'bug' | 'feature'
 
+/** How badly a bug hurts. Ignored for feature/idea submissions. */
+export type FeedbackSeverity = 'blocking' | 'annoying' | 'cosmetic'
+
 export interface FeedbackContext {
   /** Page URL the feedback was sent from. */
   url?: string
@@ -14,6 +17,12 @@ export interface FeedbackContext {
   userAgent?: string
   /** Host application name (e.g. "GLE Bookings"). */
   app?: string
+  /** Host build identifier (e.g. a git SHA), from `ModuleOptions.version`. */
+  version?: string
+  /** Bug severity picked in the dialog. Only sent for `type: 'bug'`. */
+  severity?: FeedbackSeverity
+  /** Recent client-side console errors (ring buffer). Only sent for bugs. */
+  consoleErrors?: string[]
   /** ISO-8601 timestamp of submission. */
   ts?: string
 }
@@ -31,6 +40,8 @@ export interface FeedbackResponse {
   channel?: 'sentry' | 'github'
   /** True when a bug fell back to a GitHub issue because Sentry was unavailable. */
   fallback?: boolean
+  /** The created GitHub issue, so the client can link the reporter to it. */
+  issue?: { number: number, url: string }
 }
 
 /**
@@ -48,6 +59,23 @@ export interface PublicFeedbackConfig {
   shortcut: string
   enabled: boolean
   app?: string
+  /** Host build identifier (git SHA); the dialog attaches it to every report. */
+  version?: string
+}
+
+/**
+ * Resolved label config. When `prefixed` is false the module emits a single
+ * legacy label (`bug`/`feature`); when true it emits the prefixed scheme
+ * (`base`, `type:`, `app:`, `severity:`). See `buildLabels`.
+ */
+export interface LabelConfig {
+  bug: string
+  feature: string
+  prefixed: boolean
+  base: string
+  typePrefix: string
+  appPrefix: string
+  severityPrefix: string
 }
 
 /** Private (server-only) slice of the module config. */
@@ -55,10 +83,7 @@ export interface PrivateFeedbackConfig {
   sentry: boolean
   github: {
     repo: string
-    labels: {
-      bug: string
-      feature: string
-    }
+    labels: LabelConfig
   }
 }
 

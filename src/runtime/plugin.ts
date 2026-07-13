@@ -1,6 +1,7 @@
 import { createVNode, render } from 'vue'
 import { defineNuxtPlugin } from '#app'
 import FeedbackDialog from './components/FeedbackDialog.vue'
+import { installConsoleBuffer } from './utils/consoleBuffer'
 import type { PublicFeedbackConfig } from './types'
 
 /**
@@ -17,6 +18,10 @@ export default defineNuxtPlugin((nuxtApp) => {
   if (config?.enabled === false) {
     return
   }
+
+  // Start capturing console errors immediately so the buffer has history by the
+  // time a user opens the dialog to report a bug.
+  installConsoleBuffer()
 
   nuxtApp.hook('app:mounted', () => {
     if (document.getElementById('floo-feedback-root')) {
