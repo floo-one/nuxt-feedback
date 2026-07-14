@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { REPORTER_MARKER, buildBody, buildCommentBody, buildLabels, buildReporter, buildTitle, mapThreadMessage, parseIssueNumbers } from '../src/runtime/server/lib/github'
+import { REPORTER_MARKER, buildBody, buildCommentBody, buildLabels, buildReporter, buildTitle, formatBreadcrumbs, formatEnvironment, mapThreadMessage, parseIssueNumbers } from '../src/runtime/server/lib/github'
 import type { CreateIssueArgs } from '../src/runtime/server/lib/github'
 import { applyStates, capSubmissions, hasUnread } from '../src/runtime/utils/submissionStore'
-import type { LabelConfig, StoredSubmission } from '../src/runtime/types'
+import { redact } from '../src/runtime/utils/redact'
+import { parseBrowser } from '../src/runtime/utils/environment'
+import type { Breadcrumb, LabelConfig, StoredSubmission } from '../src/runtime/types'
 
 const legacyConfig: LabelConfig = {
   bug: 'bug',
@@ -236,5 +238,104 @@ describe('thread messages', () => {
     expect(team.origin).toBe('team')
     expect(team.author).toBe('maintainer')
     expect(team.body).toBe('On it, shipping today')
+  })
+})
+
+describe('redact', () => {
+  it('scrubs emails', () => {
+    expect(redact('mail ada@example.com now')).toBe('mail [email] now')
+  })
+
+  it('scrubs github tokens, JWTs, and prefixed keys', () => {
+    expect(redact('token github_pat_11ABCDEFG0hijklmnopqrstuvwxyz')).toBe('token [token]')
+    expect(redact('jwt eyJhbGciOiJ.eyJzdWIiOiIx.SflKxwRJSMeKKF2QT4')).toBe('jwt [jwt]')
+    expect(redact('key sk_notarealkeyjustfortests')).toBe('key [key]')
+  })
+
+  it('keeps the query key but redacts the value', () => {
+    expect(redact('/cb?token=abc123&page=2')).toBe('/cb?token=[redacted]&page=2')
+    expect(redact('/x?access_token=xyz')).toBe('/x?access_token=[redacted]')
+  })
+
+  it('redacts bearer authorization values', () => {
+    expect(redact('Authorization: Bearer abcdef123456')).toBe('Authorization: Bearer [redacted]')
+  })
+
+  it('leaves innocuous text untouched', () => {
+    expect(redact('click button "Save order"')).toBe('click button "Save order"')
+  })
+})
+
+describe('parseBrowser', () => {
+  it('identifies common browser/OS pairs', () => {
+    expect(parseBrowser('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36'))
+      .toBe('Chrome on macOS')
+    expect(parseBrowser('Mozilla/5.0 (Windows NT 10.0) Gecko/20100101 Firefox/121.0'))
+      .toBe('Firefox on Windows')
+    expect(parseBrowser('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1'))
+      .toBe('Safari on iOS')
+  })
+
+  it('checks Edge before Chrome (Edge UA contains Chrome)', () => {
+    expect(parseBrowser('Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/120.0 Safari/537.36 Edg/120.0'))
+      .toBe('Edge on Windows')
+  })
+
+  it('falls back gracefully', () => {
+    expect(parseBrowser('')).toBe('unknown')
+    expect(parseBrowser('SomeBot/1.0')).toBe('unknown browser on unknown OS')
+  })
+})
+
+describe('formatEnvironment', () => {
+  it('joins present fields with a middot, skips absent ones', () => {
+    expect(formatEnvironment({ browser: 'Chrome on macOS', viewport: '1280x720', locale: 'en-US', online: true }))
+      .toBe('Chrome on macOS · viewport 1280x720 · en-US · online')
+    expect(formatEnvironment({ online: false })).toBe('offline')
+    expect(formatEnvironment({})).toBe('')
+  })
+})
+
+describe('formatBreadcrumbs', () => {
+  const mk = (kind: Breadcrumb['kind'], text: string): Breadcrumb => ({ t: '2026-07-15T02:30:45.000Z', kind, text })
+
+  it('renders a fenced timeline with time, padded kind, and text', () => {
+    const out = formatBreadcrumbs([mk('click', 'button "Save"'), mk('fetch', 'GET /api/x → 500')])
+    expect(out[0]).toBe('```')
+    expect(out[out.length - 1]).toBe('```')
+    expect(out[1]).toBe('02:30:45  click   button "Save"')
+    expect(out[2]).toBe('02:30:45  fetch   GET /api/x → 500')
+  })
+
+  it('says so when empty', () => {
+    expect(formatBreadcrumbs([])).toEqual(['_none captured_'])
+  })
+})
+
+describe('buildBody diagnostics', () => {
+  const base: CreateIssueArgs = {
+    repo: 'o/r',
+    token: 't',
+    type: 'bug',
+    message: 'It broke',
+    labels: [],
+    user: null,
+    context: { url: 'https://app/x', ts: '2026-01-01T00:00:00Z' },
+  }
+
+  it('renders the environment line for any report', () => {
+    const body = buildBody({ ...base, context: { ...base.context, environment: { browser: 'Chrome on macOS', viewport: '800x600' } } })
+    expect(body).toContain('**Environment:** Chrome on macOS · viewport 800x600')
+  })
+
+  it('renders the activity trail for bugs and prefers it over legacy console errors', () => {
+    const body = buildBody({
+      ...base,
+      context: { ...base.context, breadcrumbs: [{ t: '2026-07-15T02:30:45.000Z', kind: 'click', text: 'button "Save"' }], consoleErrors: ['legacy'] },
+    })
+    expect(body).toContain('**Recent activity:**')
+    expect(body).toContain('button "Save"')
+    expect(body).not.toContain('**Recent console errors:**')
+    expect(body).not.toContain('legacy')
   })
 })
