@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.2.3
+
+[compare changes](https://github.com/floo-one/nuxt-feedback/compare/v0.2.2...v0.2.3)
+
+### 🚀 Enhancements
+
+- Bug type + severity dropdowns; merge idea/feedback into one tab ([#4](https://github.com/floo-one/nuxt-feedback/pull/4))
+
+### ❤️ Contributors
+
+- Floo ([@floo-one](https://github.com/floo-one))
+
 ## v0.2.2
 
 [compare changes](https://github.com/floo-one/nuxt-feedback/compare/v0.2.0...v0.2.2)

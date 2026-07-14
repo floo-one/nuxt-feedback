@@ -1,7 +1,7 @@
 import type { H3Event } from 'h3'
 
 /**
- * Playground stand-in for a host's app-bucket hook. A real multi-app host maps
+ * Dashboard stand-in for a host's app-bucket hook. A real multi-app host maps
  * the page path (from `context.url`) to a bucket — e.g. `/booking/*` → 'booking'.
  * Returns `null` to fall back to `context.app`. This must never throw.
  */
@@ -12,5 +12,5 @@ export default async function resolveApp(
   const path = context?.url ? new URL(context.url).pathname : ''
   if (path.startsWith('/booking')) return 'booking'
   if (path.startsWith('/sales')) return 'sales'
-  return 'playground'
+  return 'dashboard'
 }

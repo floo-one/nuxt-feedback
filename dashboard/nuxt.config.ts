@@ -13,8 +13,9 @@ export default defineNuxtConfig({
   // build version, and the prefixed label scheme (activated by `labels.base`).
   feedback: {
     shortcut: 'g-f',
-    sentry: true,
-    version: 'playground-dev',
+    // Everything routes to GitHub — bugs included (no Sentry in the demo).
+    sentry: false,
+    version: 'dashboard-dev',
     github: {
       repo: 'floo-one/nuxt-feedback',
       labels: { base: 'feedback' },

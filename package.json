@@ -1,6 +1,6 @@
 {
   "name": "@floo-one/nuxt-feedback",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Drop-in in-app feedback dialog for Nuxt 4 — bugs to Sentry, feature requests and feedback to GitHub Issues.",
   "repository": {
     "type": "git",
@@ -31,14 +31,14 @@
   },
   "scripts": {
     "prepack": "nuxt-module-build build",
-    "dev": "pnpm run dev:prepare && nuxt dev playground",
-    "dev:build": "nuxt build playground",
-    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground",
+    "dev": "pnpm run dev:prepare && nuxt dev dashboard",
+    "dev:build": "nuxt build dashboard",
+    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare dashboard",
     "release": "pnpm run lint && pnpm run test && pnpm run prepack && changelogen --release && npm publish && git push --follow-tags",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest watch",
-    "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit"
+    "test:types": "vue-tsc --noEmit && cd dashboard && vue-tsc --noEmit"
   },
   "dependencies": {
     "@nuxt/kit": "^4.4.8",
