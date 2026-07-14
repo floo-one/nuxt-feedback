@@ -2,10 +2,10 @@
 
 A drop-in **in-app feedback dialog for Nuxt 4**. Your users press a shortcut, pick **Bug** or **Feedback**, and hit send:
 
-- 🐞 **Bug** → your **Sentry** project (User Feedback), with the full error context — plus a **type** (crash / visual / data / performance) and a **severity** (critical → cosmetic). Falls back to a GitHub issue if Sentry isn't set up.
+- 🐞 **Bug** → a **GitHub issue** (labelled `bug`) with the full context — reporter, page URL, app build, recent console errors — plus a **type** (crash / visual / data / performance) and a **severity** (critical → cosmetic).
 - 💬 **Feedback** → a **GitHub issue** on the repo you choose (ideas, praise, or anything else).
 
-It's **auth-agnostic** (you give it a tiny function to identify the user — it never imports your auth), **Sentry is optional**, and when the user is already logged in it doesn't bother asking for their email.
+It's **auth-agnostic** (you give it a tiny function to identify the user — it never imports your auth), and when the user is already logged in it doesn't bother asking for their email.
 
 ---
 
@@ -13,7 +13,6 @@ It's **auth-agnostic** (you give it a tiny function to identify the user — it 
 
 - **Nuxt ≥ 4**
 - **`@nuxt/ui` ≥ 4** (peer dependency — the dialog is built from Nuxt UI components your app already has)
-- *Optional:* **`@sentry/node`** for the bug → Sentry route. Any app already using `@sentry/nuxt` has this; if it's absent, bugs just go to GitHub instead.
 
 ---
 
@@ -35,7 +34,6 @@ export default defineNuxtConfig({
   feedback: {
     github: { repo: 'your-org/your-repo' }, // where issues are filed
     shortcut: 'g-f',                         // press g then f
-    sentry: true,                            // send bugs to your Sentry (set false to disable)
     resolveUserPath: './server/feedback-user.ts',
   },
 })
@@ -75,9 +73,7 @@ Only **one** secret is needed — the GitHub token:
 
 | Variable | Required | What it's for |
 | --- | --- | --- |
-| `NUXT_GITHUB_TOKEN` | **Yes** (for ideas + the bug fallback) | A GitHub token the server uses to create issues. Read from `runtimeConfig` — **never** exposed to the browser. |
-
-**Bug → Sentry uses your app's existing `@sentry/nuxt` setup** (the DSN you already configure, e.g. `NUXT_PUBLIC_SENTRY_DSN`). The module adds **no** Sentry env of its own — it reuses the client your app already initialises.
+| `NUXT_GITHUB_TOKEN` | **Yes** | A GitHub token the server uses to create issues (bugs and ideas). Read from `runtimeConfig` — **never** exposed to the browser. |
 
 **Getting the GitHub token** — create a [fine-grained PAT](https://github.com/settings/personal-access-tokens/new) scoped to **only your target repo** with **Issues: Read and write**, then:
 
@@ -96,9 +92,10 @@ In production, set `NUXT_GITHUB_TOKEN` in your host's secret store (Coolify / Ve
 | --- | --- | --- | --- |
 | `github.repo` | `string` | — | **Required.** Target repo for issues, `"owner/name"`. |
 | `shortcut` | `string` | `'g-f'` | Keybind in [Nuxt UI `defineShortcuts`](https://ui.nuxt.com/composables/define-shortcuts) syntax. Pick one that doesn't clash with your app's chords. |
-| `sentry` | `boolean` | `true` | Send bugs to the host Sentry SDK. `false` → bugs go to GitHub. |
-| `github.labels.feature` | `string` | `'enhancement'` | Label for feedback issues. (Bug fallbacks use `bug`.) |
+| `github.labels.feature` | `string` | `'enhancement'` | Label for feedback issues. (Bugs use `bug`.) |
 | `resolveUserPath` | `string` | — | Path to your identity hook (see step 3). Omit for always-anonymous. |
+| `resolveAppPath` | `string` | — | Path to a hook mapping a submission to an "app bucket" (used for the `app:` label). Omit to fall back to `context.app`. |
+| `onSubmitPath` | `string` | — | Path to a hook run **server-side after** a report is filed — notifications, logging, tracking. Receives `(report, result)`; a throw is caught and ignored. See below. |
 | `enabled` | `boolean` | `true` | Turn the whole thing off (e.g. per-environment). |
 
 > The GitHub token is **never** an option — it lives only in `runtimeConfig` (`NUXT_GITHUB_TOKEN`) and never reaches the client bundle, responses, or logs.
@@ -108,7 +105,7 @@ In production, set `NUXT_GITHUB_TOKEN` in your host's secret store (Coolify / Ve
 ## How it routes
 
 ```
-bug      → Sentry (captureFeedback)  ──(Sentry missing/off)──▶  GitHub issue (label: bug)
+bug      → GitHub issue (label: bug)
            carries type     (crash | visual | data | performance)
            and     severity (critical | blocking | annoying | cosmetic)
 feedback → GitHub issue (label: enhancement)
@@ -119,6 +116,25 @@ feedback → GitHub issue (label: enhancement)
 > also get `severity:<level>` + `category:<kind>`.
 
 A report is never silently dropped, and submit failures return a clean error toast (no provider internals leak to the client).
+
+### React to submissions (`onSubmitPath`)
+
+Point `onSubmitPath` at a server file to run your own code after each report is
+filed — ping Slack, write to a DB, track it for a "my reports" view. It runs
+**after** the GitHub issue is created and never blocks the user's submission (a
+throw is caught and logged).
+
+```ts
+// server/feedback-submit.ts
+export default async function onSubmit(report, result) {
+  // report: { type, message, severity?, category?, user, email?, app, labels, context? }
+  // result: { channel: 'github', issue: { number, url } }
+  await fetch(process.env.SLACK_WEBHOOK!, {
+    method: 'POST',
+    body: JSON.stringify({ text: `New ${report.type}: ${result.issue.url}` }),
+  })
+}
+```
 
 ---
 
@@ -136,7 +152,6 @@ Integrate the npm package @floo-one/nuxt-feedback into this Nuxt 4 app.
      - github.repo: the "owner/name" of THIS app's GitHub repo (find it from the git remote)
      - shortcut: 'g-f' — but first grep the codebase for existing `defineShortcuts` chords
        and pick a non-colliding one if g-f is taken
-     - sentry: true only if this app already runs @sentry/nuxt, otherwise false
      - resolveUserPath: './server/feedback-user.ts'
 3. Create server/feedback-user.ts that default-exports
    `async (event: H3Event) => ({ id, email, name }) | null`. Wire it to THIS app's existing

@@ -1,7 +1,7 @@
 {
   "name": "@floo-one/nuxt-feedback",
   "version": "0.2.3",
-  "description": "Drop-in in-app feedback dialog for Nuxt 4 — bugs to Sentry, feature requests and feedback to GitHub Issues.",
+  "description": "Drop-in in-app feedback dialog for Nuxt 4 — bugs and ideas to GitHub Issues, with a server-side submit hook.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/floo-one/nuxt-feedback.git"
@@ -45,13 +45,7 @@
     "zod": "^4.3.6"
   },
   "peerDependencies": {
-    "@nuxt/ui": ">=4.0.0",
-    "@sentry/node": ">=8.0.0"
-  },
-  "peerDependenciesMeta": {
-    "@sentry/node": {
-      "optional": true
-    }
+    "@nuxt/ui": ">=4.0.0"
   },
   "devDependencies": {
     "@nuxt/devtools": "^3.2.4",
@@ -60,7 +54,6 @@
     "@nuxt/schema": "^4.4.8",
     "@nuxt/test-utils": "^4.0.3",
     "@nuxt/ui": "^4.9.0",
-    "@sentry/node": "^10.60.0",
     "@types/node": "latest",
     "changelogen": "^0.6.2",
     "eslint": "^10.4.1",

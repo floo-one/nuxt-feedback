@@ -100,8 +100,8 @@ async function onSubmit() {
       },
     })
     const issue = res?.issue
-    // Record GitHub-channel reports so the history drawer can track them. Bugs
-    // captured by Sentry have no issue and are intentionally not tracked.
+    // Record filed reports so the history drawer can track them. Every
+    // submission now files a GitHub issue, so all of them are recorded.
     if (issue) {
       recordSubmission({
         type: state.type,
