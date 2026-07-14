@@ -1,4 +1,4 @@
-import type { FeedbackContext, FeedbackSeverity, FeedbackType, LabelConfig, ResolvedUser } from '../../types'
+import type { FeedbackCategory, FeedbackContext, FeedbackSeverity, FeedbackType, LabelConfig, ResolvedUser } from '../../types'
 
 export interface CreateIssueArgs {
   repo: string
@@ -27,15 +27,17 @@ const TYPE_SLUG: Record<FeedbackType, string> = {
 /**
  * Build the issue labels from the resolved config.
  * Legacy scheme → a single `bug`/`feature` label. Prefixed scheme → `base`,
- * `type:<slug>`, `app:<bucket>` (when resolved), and `severity:<level>` (bugs only).
+ * `type:<slug>`, `app:<bucket>` (when resolved), plus `severity:<level>` and
+ * `category:<kind>` (both bugs only).
  */
 export function buildLabels(args: {
   type: FeedbackType
   app?: string | null
   severity?: FeedbackSeverity
+  category?: FeedbackCategory
   config: LabelConfig
 }): string[] {
-  const { type, app, severity, config } = args
+  const { type, app, severity, category, config } = args
   if (!config.prefixed) {
     return [type === 'bug' ? config.bug : config.feature]
   }
@@ -44,6 +46,7 @@ export function buildLabels(args: {
   labels.push(`${config.typePrefix}${TYPE_SLUG[type]}`)
   if (app) labels.push(`${config.appPrefix}${app}`)
   if (type === 'bug' && severity) labels.push(`${config.severityPrefix}${severity}`)
+  if (type === 'bug' && category) labels.push(`${config.categoryPrefix}${category}`)
   return labels
 }
 
@@ -76,6 +79,7 @@ export function buildBody(args: CreateIssueArgs): string {
   const appName = app || context?.app
   if (appName) lines.push(`**App:** ${appName}`)
   if (type === 'bug' && context?.severity) lines.push(`**Severity:** ${context.severity}`)
+  if (type === 'bug' && context?.category) lines.push(`**Type:** ${context.category}`)
   if (context?.url) lines.push(`**URL:** ${context.url}`)
   if (context?.version) lines.push(`**Version:** ${context.version}`)
   if (context?.userAgent) lines.push(`**User agent:** ${context.userAgent}`)
