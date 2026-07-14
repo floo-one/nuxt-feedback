@@ -124,7 +124,7 @@ onBeforeUnmount(stopPoll)
 // ---- Presentation --------------------------------------------------------
 
 function typeIcon(t: StoredSubmission['type']): string {
-  return t === 'bug' ? 'i-lucide-bug' : 'i-lucide-lightbulb'
+  return t === 'bug' ? 'i-lucide-bug' : 'i-lucide-message-circle'
 }
 
 function badge(s: StoredSubmission): { label: string, color: 'success' | 'neutral' } {
