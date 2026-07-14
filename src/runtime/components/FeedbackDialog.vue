@@ -8,7 +8,7 @@ import { useRuntimeConfig } from '#imports'
 import { defineShortcuts, useToast } from '@nuxt/ui/composables'
 import { useFeedback } from '../composables/useFeedback'
 import { getConsoleErrors } from '../utils/consoleBuffer'
-import type { FeedbackSeverity, FeedbackType, PublicFeedbackConfig } from '../types'
+import type { FeedbackCategory, FeedbackSeverity, FeedbackType, PublicFeedbackConfig } from '../types'
 
 const { isOpen, type, submit, close, fetchIdentity } = useFeedback()
 const toast = useToast()
@@ -16,14 +16,23 @@ const config = useRuntimeConfig().public.feedback as PublicFeedbackConfig
 
 const typeItems = [
   { label: 'Bug', value: 'bug', icon: 'i-lucide-bug' },
-  { label: 'Idea', value: 'feature', icon: 'i-lucide-lightbulb' },
+  { label: 'Feedback', value: 'feature', icon: 'i-lucide-message-circle' },
 ] satisfies Array<{ label: string, value: FeedbackType, icon: string }>
 
 const severityItems = [
+  { label: 'Critical', value: 'critical' },
   { label: 'Blocking', value: 'blocking' },
   { label: 'Annoying', value: 'annoying' },
   { label: 'Cosmetic', value: 'cosmetic' },
 ] satisfies Array<{ label: string, value: FeedbackSeverity }>
+
+// Kinds of bug — the "Type" dropdown shown alongside Severity for bug reports.
+const categoryItems = [
+  { label: 'Crash / Error', value: 'crash' },
+  { label: 'Visual / UI', value: 'visual' },
+  { label: 'Data / Incorrect', value: 'data' },
+  { label: 'Performance', value: 'performance' },
+] satisfies Array<{ label: string, value: FeedbackCategory }>
 
 const schema = z.object({
   type: z.enum(['bug', 'feature']),
@@ -31,11 +40,12 @@ const schema = z.object({
   email: z.union([z.literal(''), z.email('That email looks off')]).optional(),
 })
 
-const state = reactive<{ type: FeedbackType, message: string, email: string, severity: FeedbackSeverity }>({
+const state = reactive<{ type: FeedbackType, message: string, email: string, severity: FeedbackSeverity, category: FeedbackCategory }>({
   type: type.value,
   message: '',
   email: '',
   severity: 'annoying',
+  category: 'crash',
 })
 
 // Keep the tabs in sync when opened programmatically with a type.
@@ -62,9 +72,9 @@ const copy = {
     placeholder: 'What happened? What were you trying to do?',
   },
   feature: {
-    title: 'Got an idea?',
-    description: 'What would make this better for you?',
-    placeholder: 'What would you like to see?',
+    title: 'Got feedback?',
+    description: 'An idea, some praise, or anything else — we\'re all ears.',
+    placeholder: 'What would make this better for you?',
   },
 } satisfies Record<FeedbackType, { title: string, description: string, placeholder: string }>
 
@@ -84,8 +94,8 @@ async function onSubmit() {
         app: config?.app,
         version: config?.version,
         ts: new Date().toISOString(),
-        // Bug-only signal: severity + a snapshot of recent console errors.
-        ...(isBug ? { severity: state.severity, consoleErrors: getConsoleErrors() } : {}),
+        // Bug-only signals: severity, category + a snapshot of recent console errors.
+        ...(isBug ? { severity: state.severity, category: state.category, consoleErrors: getConsoleErrors() } : {}),
       },
     })
     const issue = res?.issue
@@ -144,17 +154,32 @@ async function onSubmit() {
           class="w-full"
         />
 
-        <UFormField
+        <div
           v-if="state.type === 'bug'"
-          name="severity"
-          label="Severity"
+          class="grid grid-cols-2 gap-3"
         >
-          <USelect
-            v-model="state.severity"
-            :items="severityItems"
-            class="w-full"
-          />
-        </UFormField>
+          <UFormField
+            name="category"
+            label="Type"
+          >
+            <USelect
+              v-model="state.category"
+              :items="categoryItems"
+              class="w-full"
+            />
+          </UFormField>
+
+          <UFormField
+            name="severity"
+            label="Severity"
+          >
+            <USelect
+              v-model="state.severity"
+              :items="severityItems"
+              class="w-full"
+            />
+          </UFormField>
+        </div>
 
         <UFormField name="message">
           <UTextarea

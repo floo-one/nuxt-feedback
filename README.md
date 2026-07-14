@@ -1,9 +1,9 @@
 # @floo-one/nuxt-feedback
 
-A drop-in **in-app feedback dialog for Nuxt 4**. Your users press a shortcut, pick **Bug** or **Idea**, and hit send:
+A drop-in **in-app feedback dialog for Nuxt 4**. Your users press a shortcut, pick **Bug** or **Feedback**, and hit send:
 
-- 🐞 **Bug** → your **Sentry** project (User Feedback), with the full error context. Falls back to a GitHub issue if Sentry isn't set up.
-- 💡 **Idea** → a **GitHub issue** on the repo you choose.
+- 🐞 **Bug** → your **Sentry** project (User Feedback), with the full error context — plus a **type** (crash / visual / data / performance) and a **severity** (critical → cosmetic). Falls back to a GitHub issue if Sentry isn't set up.
+- 💬 **Feedback** → a **GitHub issue** on the repo you choose (ideas, praise, or anything else).
 
 It's **auth-agnostic** (you give it a tiny function to identify the user — it never imports your auth), **Sentry is optional**, and when the user is already logged in it doesn't bother asking for their email.
 
@@ -64,7 +64,7 @@ That's it. The dialog auto-mounts everywhere — press **`g` then `f`**, or open
 ```ts
 const { open } = useFeedback()
 open()          // last-used type
-open('bug')     // or 'feature'
+open('bug')     // or 'feature' (the Feedback tab)
 ```
 
 ---
@@ -97,7 +97,7 @@ In production, set `NUXT_GITHUB_TOKEN` in your host's secret store (Coolify / Ve
 | `github.repo` | `string` | — | **Required.** Target repo for issues, `"owner/name"`. |
 | `shortcut` | `string` | `'g-f'` | Keybind in [Nuxt UI `defineShortcuts`](https://ui.nuxt.com/composables/define-shortcuts) syntax. Pick one that doesn't clash with your app's chords. |
 | `sentry` | `boolean` | `true` | Send bugs to the host Sentry SDK. `false` → bugs go to GitHub. |
-| `github.labels.feature` | `string` | `'enhancement'` | Label for idea issues. (Bug fallbacks use `bug`.) |
+| `github.labels.feature` | `string` | `'enhancement'` | Label for feedback issues. (Bug fallbacks use `bug`.) |
 | `resolveUserPath` | `string` | — | Path to your identity hook (see step 3). Omit for always-anonymous. |
 | `enabled` | `boolean` | `true` | Turn the whole thing off (e.g. per-environment). |
 
@@ -108,9 +108,15 @@ In production, set `NUXT_GITHUB_TOKEN` in your host's secret store (Coolify / Ve
 ## How it routes
 
 ```
-bug     → Sentry (captureFeedback)  ──(Sentry missing/off)──▶  GitHub issue (label: bug)
-idea    → GitHub issue (label: enhancement)
+bug      → Sentry (captureFeedback)  ──(Sentry missing/off)──▶  GitHub issue (label: bug)
+           carries type     (crash | visual | data | performance)
+           and     severity (critical | blocking | annoying | cosmetic)
+feedback → GitHub issue (label: enhancement)
 ```
+
+> **Prefixed label scheme** (opt in by setting any `github.labels.*Prefix` or `base`):
+> issues get `<base>` + `type:<bug|idea>` + `app:<bucket>`, and bugs
+> also get `severity:<level>` + `category:<kind>`.
 
 A report is never silently dropped, and submit failures return a clean error toast (no provider internals leak to the client).
 

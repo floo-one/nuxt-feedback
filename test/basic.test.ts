@@ -11,6 +11,7 @@ const legacyConfig: LabelConfig = {
   typePrefix: 'type:',
   appPrefix: 'app:',
   severityPrefix: 'severity:',
+  categoryPrefix: 'category:',
 }
 const prefixedConfig: LabelConfig = { ...legacyConfig, prefixed: true }
 
@@ -40,18 +41,18 @@ describe('buildLabels', () => {
     expect(buildLabels({ type: 'feature', config: legacyConfig })).toEqual(['enhancement'])
   })
 
-  it('legacy scheme ignores app and severity', () => {
-    expect(buildLabels({ type: 'bug', app: 'booking', severity: 'blocking', config: legacyConfig }))
+  it('legacy scheme ignores app, severity and category', () => {
+    expect(buildLabels({ type: 'bug', app: 'booking', severity: 'blocking', category: 'crash', config: legacyConfig }))
       .toEqual(['bug'])
   })
 
-  it('prefixed scheme emits base + type + app + severity for a bug', () => {
-    expect(buildLabels({ type: 'bug', app: 'booking', severity: 'blocking', config: prefixedConfig }))
-      .toEqual(['feedback', 'type:bug', 'app:booking', 'severity:blocking'])
+  it('prefixed scheme emits base + type + app + severity + category for a bug', () => {
+    expect(buildLabels({ type: 'bug', app: 'booking', severity: 'critical', category: 'crash', config: prefixedConfig }))
+      .toEqual(['feedback', 'type:bug', 'app:booking', 'severity:critical', 'category:crash'])
   })
 
-  it('prefixed scheme maps feature to type:idea and omits severity', () => {
-    expect(buildLabels({ type: 'feature', app: 'sales', severity: 'blocking', config: prefixedConfig }))
+  it('prefixed scheme maps feature to type:idea and omits severity/category', () => {
+    expect(buildLabels({ type: 'feature', app: 'sales', severity: 'blocking', category: 'visual', config: prefixedConfig }))
       .toEqual(['feedback', 'type:idea', 'app:sales'])
   })
 
@@ -72,14 +73,15 @@ describe('buildBody', () => {
     context: { url: 'https://app/x', ts: '2026-01-01T00:00:00Z' },
   }
 
-  it('renders resolved app, severity, version for a bug', () => {
+  it('renders resolved app, severity, type, version for a bug', () => {
     const body = buildBody({
       ...base,
       app: 'booking',
-      context: { ...base.context, severity: 'blocking', version: 'abc123' },
+      context: { ...base.context, severity: 'critical', category: 'data', version: 'abc123' },
     })
     expect(body).toContain('**App:** booking')
-    expect(body).toContain('**Severity:** blocking')
+    expect(body).toContain('**Severity:** critical')
+    expect(body).toContain('**Type:** data')
     expect(body).toContain('**Version:** abc123')
     expect(body).toContain('**Reporter:** Ada <ada@x.io> (id: u1)')
   })
@@ -94,13 +96,14 @@ describe('buildBody', () => {
     expect(empty).toContain('_none captured_')
   })
 
-  it('omits severity and console block for feature submissions', () => {
+  it('omits severity, type and console block for feedback submissions', () => {
     const body = buildBody({
       ...base,
       type: 'feature',
-      context: { ...base.context, severity: 'blocking', consoleErrors: ['x'] },
+      context: { ...base.context, severity: 'blocking', category: 'crash', consoleErrors: ['x'] },
     })
     expect(body).not.toContain('**Severity:**')
+    expect(body).not.toContain('**Type:**')
     expect(body).not.toContain('Recent console errors')
   })
 })

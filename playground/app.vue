@@ -24,12 +24,12 @@ const { open } = useFeedback()
           Report a bug
         </UButton>
         <UButton
-          icon="i-lucide-lightbulb"
+          icon="i-lucide-message-circle"
           color="primary"
           variant="soft"
           @click="open('feature')"
         >
-          Share an idea
+          Share feedback
         </UButton>
       </div>
     </UContainer>
