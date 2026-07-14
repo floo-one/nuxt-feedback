@@ -8,9 +8,10 @@ import { useRuntimeConfig } from '#imports'
 import { defineShortcuts, useToast } from '@nuxt/ui/composables'
 import { useFeedback } from '../composables/useFeedback'
 import { getConsoleErrors } from '../utils/consoleBuffer'
+import { recordSubmission } from '../utils/submissionStore'
 import type { FeedbackCategory, FeedbackSeverity, FeedbackType, PublicFeedbackConfig } from '../types'
 
-const { isOpen, type, submit, close, fetchIdentity } = useFeedback()
+const { isOpen, type, submit, close, openHistory, fetchIdentity } = useFeedback()
 const toast = useToast()
 const config = useRuntimeConfig().public.feedback as PublicFeedbackConfig
 
@@ -99,6 +100,17 @@ async function onSubmit() {
       },
     })
     const issue = res?.issue
+    // Record GitHub-channel reports so the history drawer can track them. Bugs
+    // captured by Sentry have no issue and are intentionally not tracked.
+    if (issue) {
+      recordSubmission({
+        type: state.type,
+        issueNumber: issue.number,
+        issueUrl: issue.url,
+        title: state.message.trim().split('\n')[0]!.slice(0, 100) || `${state.type} report`,
+        submittedAt: new Date().toISOString(),
+      })
+    }
     toast.add({
       title: issue ? `Filed as #${issue.number} — thanks! 🙌` : 'Got it — thanks! 🙌',
       color: 'success',
@@ -212,6 +224,17 @@ async function onSubmit() {
           :loading="loading"
           block
         />
+
+        <div class="text-center">
+          <UButton
+            label="See your reports"
+            icon="i-lucide-inbox"
+            variant="link"
+            color="neutral"
+            size="sm"
+            @click="close(); openHistory()"
+          />
+        </div>
       </UForm>
     </template>
   </UModal>

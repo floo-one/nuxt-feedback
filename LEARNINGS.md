@@ -53,6 +53,34 @@ don't re-discover these.
   (e.g. Better Auth's `getAuthSession`) resolve there with **no explicit import** —
   confirmed by a clean `nuxt typecheck` of the host after wiring.
 
+## One route, one `addServerHandler` (GET+POST in one file)
+
+- Registering the **same route twice** via `addServerHandler` (once `method: 'get'`,
+  once `method: 'post'`) makes Nitro drop the route **entirely** — the path then falls
+  through to the SPA catch-all and returns `text/html` instead of your handler. This is
+  unlike file-based routing (`thread.get.ts` + `thread.post.ts`), where two files sharing
+  a route work fine.
+- Fix: register the route **once** (no `method`) and branch on `event.method` inside a
+  single handler (see `runtime/server/api/thread.ts`). Confirm registration in
+  `playground/.nuxt/types/nitro-routes.d.ts` — if the route isn't listed there, it isn't
+  wired, no matter what the handler file says.
+- Debugging tip: `curl -w '%{content_type}'` a module API route. `application/json` = your
+  handler ran; `text/html` = the route isn't registered and you're getting the SPA shell.
+
+## Dev-server gotchas that cost real time
+
+- **Zombie on the port.** A dev server that cold-starts into an error can keep holding
+  `:3000`; every later `nuxt dev` then fails to bind silently (under `nohup`) and your
+  `curl`/browser keeps hitting the broken original. If a fix "changes nothing", check the
+  owner first: `lsof -ti tcp:3000` → `kill -9`. Don't theorise (Node version, caches,
+  code) until the port owner is confirmed to be *your* fresh process.
+- **Don't nuke `node_modules/.pnpm/**/.cache`.** Those hold rebuilt native artifacts
+  (watcher/resolver). Clearing app state means `.nuxt dist playground/.nuxt` only.
+- **`packageManager: pnpm@11.8.0`** makes a local pnpm 10.x try to self-switch and fail
+  (`@pnpm/exe@11.8.0 not found`). Work around with
+  `PNPM_CONFIG_MANAGE_PACKAGE_MANAGER_VERSIONS=false` (corepack on the real machine handles
+  it). Run tools via `node_modules/.bin/*` to bypass the `pnpm run` wrapper entirely.
+
 ## Secrets
 
 - GitHub token lives only in **private** `runtimeConfig.githubToken` (maps to

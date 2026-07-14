@@ -98,3 +98,63 @@ export interface FeedbackIdentity {
   /** True when the host's resolveUser hook returned a user for this request. */
   identified: boolean
 }
+
+/** Open/closed state of a GitHub issue. */
+export type FeedbackState = 'open' | 'closed'
+
+/**
+ * One report the current browser has filed, persisted client-side in
+ * localStorage. Only GitHub-channel submissions (ideas + bug fallbacks) are
+ * stored — a bug captured by Sentry has no issue to track. `title` is kept
+ * locally and never round-tripped through the status endpoint.
+ */
+export interface StoredSubmission {
+  type: FeedbackType
+  issueNumber: number
+  issueUrl: string
+  title: string
+  /** ISO-8601 timestamp of submission. */
+  submittedAt: string
+  /** Last-known issue state, refreshed by the status endpoint. */
+  state?: FeedbackState
+  /** Last-known total comment count (from the status endpoint). */
+  comments?: number
+  /** Comment count the reporter has already seen (drives the unread dot). */
+  seenComments?: number
+  /** ISO-8601 timestamp of the last successful status refresh. */
+  checkedAt?: string
+}
+
+/**
+ * One item in the status endpoint response. Deliberately carries no title or
+ * body — the client already has the title locally, so the server never echoes
+ * issue content back (blocks issue-number enumeration from leaking titles).
+ * `comments` is the issue's total comment count, used for the unread indicator.
+ */
+export interface FeedbackStatus {
+  number: number
+  state: FeedbackState
+  comments: number
+}
+
+/** Who wrote a thread message: the reporter (via the widget) or the team. */
+export type FeedbackMessageOrigin = 'reporter' | 'team'
+
+/** One message in an issue's comment thread, shown in the widget. */
+export interface FeedbackThreadMessage {
+  id: string
+  /** GitHub login of the comment author (the bot, for reporter messages). */
+  author: string
+  /** Comment body, with the internal reporter marker stripped. */
+  body: string
+  /** ISO-8601 creation time. */
+  createdAt: string
+  origin: FeedbackMessageOrigin
+}
+
+/** An issue's thread: its current state plus every comment (issue body excluded). */
+export interface FeedbackThread {
+  number: number
+  state: FeedbackState
+  messages: FeedbackThreadMessage[]
+}
