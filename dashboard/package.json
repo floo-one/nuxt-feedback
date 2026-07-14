@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "@floo-one/nuxt-feedback-playground",
+  "name": "@floo-one/nuxt-feedback-dashboard",
   "type": "module",
   "scripts": {
     "dev": "nuxt dev",

@@ -2,15 +2,15 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "playground",
+      "name": "dashboard",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["dev"],
       "port": 3000
     },
     {
-      "name": "playground-prod",
+      "name": "dashboard-prod",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["playground/.output/server/index.mjs"],
+      "runtimeArgs": ["dashboard/.output/server/index.mjs"],
       "port": 3000
     }
   ]

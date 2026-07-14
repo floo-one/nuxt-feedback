@@ -154,11 +154,32 @@ never a public option, never committed, never in the client bundle.
 
 ---
 
+## Host the dashboard (live demo)
+
+The repo ships a [Dockerfile](Dockerfile) that builds the [dashboard](dashboard) app — today a self-contained demo site with the module installed on a real page (dialog and API routes fully working), and long-term the dashboard for triaging the issues the module files.
+
+On **Coolify**: create an application from this repo, pick the **Dockerfile** build pack (port `3000`), and set one env var:
+
+| Variable | Value |
+| --- | --- |
+| `NUXT_GITHUB_TOKEN` | A GitHub token with **Issues: write** on the repo demo submissions should land in (the dashboard targets `floo-one/nuxt-feedback`). |
+
+Without the token the site still runs and the dialog opens — submits just fail with an error toast.
+
+Or locally:
+
+```bash
+docker build -t nuxt-feedback-demo .
+docker run -p 3000:3000 -e NUXT_GITHUB_TOKEN=github_pat_xxx nuxt-feedback-demo
+```
+
+---
+
 ## Develop this module
 
 ```bash
 pnpm install
-pnpm dev          # run the playground
+pnpm dev          # run the dashboard app locally
 pnpm lint && pnpm test && pnpm test:types
 pnpm prepack      # build the distributable
 ```
