@@ -41,12 +41,39 @@ export interface FeedbackPayload {
 
 export interface FeedbackResponse {
   ok: boolean
-  /** Which integration handled the report, when successful. */
-  channel?: 'sentry' | 'github'
-  /** True when a bug fell back to a GitHub issue because Sentry was unavailable. */
-  fallback?: boolean
+  /** Which integration handled the report, when successful. Always GitHub. Absent on failure. */
+  channel?: 'github'
   /** The created GitHub issue, so the client can link the reporter to it. */
   issue?: { number: number, url: string }
+}
+
+/**
+ * The resolved report handed to the host `onSubmit` hook — everything the host
+ * needs to notify, log, or track a submission. This shape is a contract:
+ * downstream host code (notifications, loop-back, "My reports") depends on it.
+ */
+export interface FeedbackReport {
+  type: FeedbackType
+  message: string
+  /** Bug severity, when the report is a bug. */
+  severity?: FeedbackSeverity
+  /** Bug category, when the report is a bug. */
+  category?: FeedbackCategory
+  /** Reporter identity from the host's resolveUser hook, or null when anonymous. */
+  user: ResolvedUser | null
+  /** Email the anonymous reporter typed, when they weren't identified. */
+  email?: string
+  /** Resolved app bucket (from resolveApp or context.app), or null. */
+  app: string | null
+  /** Labels applied to the created issue. */
+  labels: string[]
+  context?: FeedbackContext
+}
+
+/** The delivery result handed to the host `onSubmit` hook. */
+export interface FeedbackResult {
+  channel: 'github'
+  issue: { number: number, url: string }
 }
 
 /**
@@ -86,7 +113,6 @@ export interface LabelConfig {
 
 /** Private (server-only) slice of the module config. */
 export interface PrivateFeedbackConfig {
-  sentry: boolean
   github: {
     repo: string
     labels: LabelConfig
@@ -104,9 +130,9 @@ export type FeedbackState = 'open' | 'closed'
 
 /**
  * One report the current browser has filed, persisted client-side in
- * localStorage. Only GitHub-channel submissions (ideas + bug fallbacks) are
- * stored — a bug captured by Sentry has no issue to track. `title` is kept
- * locally and never round-tripped through the status endpoint.
+ * localStorage. Every submission files a GitHub issue, so all reports are
+ * tracked. `title` is kept locally and never round-tripped through the status
+ * endpoint.
  */
 export interface StoredSubmission {
   type: FeedbackType

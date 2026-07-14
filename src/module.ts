@@ -44,11 +44,6 @@ export interface ModuleOptions {
    */
   version?: string
   /**
-   * `true` (default) auto-detects the host's server Sentry SDK for the bug route.
-   * `false` disables the bug→Sentry route (bugs then fall back to a GitHub issue).
-   */
-  sentry?: boolean
-  /**
    * Path (relative to the Nuxt project root) to a host file that default-exports
    * `async (event) => ({ id, email, name } | null)`. Used to attach reporter identity
    * server-side. When unset, identity resolves to `null` (anonymous).
@@ -62,6 +57,15 @@ export interface ModuleOptions {
    * `context.app`. Keeps route→bucket logic in the host, not the module.
    */
   resolveAppPath?: string
+  /**
+   * Path (relative to the Nuxt project root) to a host file that default-exports
+   * `async (report, result) => void`, called server-side **after** a report is
+   * successfully filed as a GitHub issue. The hook is where the host wires
+   * notifications (Slack), logging, or its own "my reports" tracking. It must
+   * never need to succeed for the submission to succeed — a throw is caught and
+   * ignored. Not called when issue creation fails.
+   */
+  onSubmitPath?: string
   /** Disable the module entirely (e.g. per-environment). Default `true`. */
   enabled?: boolean
 }
@@ -76,7 +80,6 @@ export default defineNuxtModule<ModuleOptions>({
   },
   defaults: {
     shortcut: 'g-f',
-    sentry: true,
     enabled: true,
     github: {
       repo: '',
@@ -111,7 +114,6 @@ export default defineNuxtModule<ModuleOptions>({
 
     const runtimeConfig = nuxt.options.runtimeConfig as Record<string, unknown>
     runtimeConfig.feedback = {
-      sentry: options.sentry !== false,
       github: {
         repo: options.github?.repo ?? '',
         labels: {
@@ -206,10 +208,20 @@ export default defineNuxtModule<ModuleOptions>({
       )}`
       : 'export default async () => null'
 
+    // ---- onSubmit virtual module --------------------------------------------
+    // Same pattern again: the host runs its own code after a report is filed.
+    // Default is a no-op so the server route can always import + call it.
+    const onSubmitCode = options.onSubmitPath
+      ? `export { default } from ${JSON.stringify(
+        createResolver(nuxt.options.rootDir).resolve(options.onSubmitPath),
+      )}`
+      : 'export default async () => {}'
+
     nuxt.hook('nitro:config', (nitroConfig) => {
       nitroConfig.virtual ||= {}
       nitroConfig.virtual['#feedback/resolve-user'] = resolveUserCode
       nitroConfig.virtual['#feedback/resolve-app'] = resolveAppCode
+      nitroConfig.virtual['#feedback/on-submit'] = onSubmitCode
     })
 
     // Type declarations for the virtual modules (app + nitro contexts).
@@ -233,6 +245,32 @@ export default defineNuxtModule<ModuleOptions>({
           `  import type { H3Event } from 'h3'`,
           `  const resolveApp: (event: H3Event, context?: { url?: string, app?: string, [key: string]: unknown }) => Promise<string | null>`,
           `  export default resolveApp`,
+          `}`,
+          ``,
+        ].join('\n'),
+    })
+    addTypeTemplate({
+      filename: 'types/floo-feedback-on-submit.d.ts',
+      getContents: () =>
+        [
+          `declare module '#feedback/on-submit' {`,
+          `  type FeedbackType = 'bug' | 'feature'`,
+          `  type FeedbackSeverity = 'critical' | 'blocking' | 'annoying' | 'cosmetic'`,
+          `  type FeedbackCategory = 'crash' | 'visual' | 'data' | 'performance'`,
+          `  interface FeedbackReport {`,
+          `    type: FeedbackType`,
+          `    message: string`,
+          `    severity?: FeedbackSeverity`,
+          `    category?: FeedbackCategory`,
+          `    user: { id?: string, email?: string, name?: string } | null`,
+          `    email?: string`,
+          `    app: string | null`,
+          `    labels: string[]`,
+          `    context?: { url?: string, userAgent?: string, app?: string, version?: string, severity?: FeedbackSeverity, category?: FeedbackCategory, consoleErrors?: string[], ts?: string }`,
+          `  }`,
+          `  interface FeedbackResult { channel: 'github', issue: { number: number, url: string } }`,
+          `  const onSubmit: (report: FeedbackReport, result: FeedbackResult) => Promise<void>`,
+          `  export default onSubmit`,
           `}`,
           ``,
         ].join('\n'),

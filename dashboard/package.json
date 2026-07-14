@@ -10,7 +10,6 @@
   "dependencies": {
     "@floo-one/nuxt-feedback": "workspace:*",
     "@nuxt/ui": "^4.9.0",
-    "@sentry/node": "^10.60.0",
     "nuxt": "^4.4.8"
   }
 }

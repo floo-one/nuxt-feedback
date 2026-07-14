@@ -91,6 +91,8 @@ export function buildReporter(user: ResolvedUser | null, email?: string): string
 
 export function buildBody(args: CreateIssueArgs): string {
   const { message, user, email, context, app, type } = args
+
+  // Top-level summary: the human-readable essentials, always visible.
   const lines = [
     message.trim(),
     '',
@@ -101,22 +103,36 @@ export function buildBody(args: CreateIssueArgs): string {
   if (appName) lines.push(`**App:** ${appName}`)
   if (type === 'bug' && context?.severity) lines.push(`**Severity:** ${context.severity}`)
   if (type === 'bug' && context?.category) lines.push(`**Type:** ${context.category}`)
-  if (context?.url) lines.push(`**URL:** ${context.url}`)
-  if (context?.version) lines.push(`**Version:** ${context.version}`)
-  if (context?.userAgent) lines.push(`**User agent:** ${context.userAgent}`)
-  lines.push(`**Submitted:** ${context?.ts || new Date().toISOString()}`)
+
+  // Diagnostics: collapsed by default so the issue stays readable. Later steps
+  // (breadcrumbs, network errors, environment) add more sections in this block.
+  const diagnostics: string[] = []
+  if (context?.url) diagnostics.push(`**URL:** ${context.url}`)
+  if (context?.version) diagnostics.push(`**Version:** ${context.version}`)
+  if (context?.userAgent) diagnostics.push(`**User agent:** ${context.userAgent}`)
+  diagnostics.push(`**Submitted:** ${context?.ts || new Date().toISOString()}`)
 
   // Bugs carry a client-side console-error ring buffer. Render it explicitly
   // (including "none captured") so triagers know whether it was empty vs absent.
   if (type === 'bug' && context?.consoleErrors) {
-    lines.push('', '**Recent console errors:**')
+    diagnostics.push('', '**Recent console errors:**', '')
     if (context.consoleErrors.length > 0) {
-      lines.push('```', ...context.consoleErrors, '```')
+      diagnostics.push('```', ...context.consoleErrors, '```')
     }
     else {
-      lines.push('_none captured_')
+      diagnostics.push('_none captured_')
     }
   }
+
+  lines.push(
+    '',
+    '<details>',
+    '<summary>Diagnostics</summary>',
+    '',
+    ...diagnostics,
+    '',
+    '</details>',
+  )
 
   lines.push('', '_Filed via @floo-one/nuxt-feedback._')
   return lines.join('\n')

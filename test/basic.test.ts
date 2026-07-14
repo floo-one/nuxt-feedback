@@ -87,6 +87,27 @@ describe('buildBody', () => {
     expect(body).toContain('**Reporter:** Ada <ada@x.io> (id: u1)')
   })
 
+  it('keeps the summary visible and tucks diagnostics into a <details> block', () => {
+    const body = buildBody({
+      ...base,
+      app: 'booking',
+      context: { ...base.context, severity: 'blocking', version: 'abc123' },
+    })
+    expect(body).toContain('<details>')
+    expect(body).toContain('<summary>Diagnostics</summary>')
+    expect(body).toContain('</details>')
+
+    const summary = body.slice(0, body.indexOf('<details>'))
+    const details = body.slice(body.indexOf('<details>'))
+    // Reporter / App / Severity stay above the fold; URL / Version / Submitted collapse.
+    expect(summary).toContain('**Reporter:**')
+    expect(summary).toContain('**App:** booking')
+    expect(summary).toContain('**Severity:** blocking')
+    expect(details).toContain('**URL:** https://app/x')
+    expect(details).toContain('**Version:** abc123')
+    expect(details).toContain('**Submitted:**')
+  })
+
   it('renders a fenced console-error block, and "none captured" when empty', () => {
     const withErrors = buildBody({ ...base, context: { ...base.context, consoleErrors: ['TypeError: x'] } })
     expect(withErrors).toContain('**Recent console errors:**')

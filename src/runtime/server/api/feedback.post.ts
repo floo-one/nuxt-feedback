@@ -3,9 +3,9 @@ import { z } from 'zod'
 import { useRuntimeConfig } from '#imports'
 import resolveUser from '#feedback/resolve-user'
 import resolveApp from '#feedback/resolve-app'
+import onSubmit from '#feedback/on-submit'
 import { buildLabels, createGitHubIssue } from '../lib/github'
-import { captureBugInSentry } from '../lib/sentry'
-import type { FeedbackResponse, PrivateFeedbackConfig } from '../../types'
+import type { FeedbackReport, FeedbackResponse, FeedbackResult, PrivateFeedbackConfig } from '../../types'
 
 const bodySchema = z.object({
   type: z.enum(['bug', 'feature']),
@@ -60,31 +60,7 @@ export default defineEventHandler(async (event): Promise<FeedbackResponse> => {
   })
 
   try {
-    if (body.type === 'bug') {
-      const captured = feedback.sentry
-        ? await captureBugInSentry({ message: body.message, email, user, context: body.context })
-        : false
-      if (captured) {
-        return { ok: true, channel: 'sentry' }
-      }
-
-      // Sentry unavailable/disabled: never drop a bug — file it as a GitHub issue.
-      console.warn('[feedback] bug route falling back to GitHub issue')
-      const issue = await createGitHubIssue({
-        repo: feedback.github.repo,
-        token,
-        type: 'bug',
-        message: body.message,
-        labels,
-        app,
-        email,
-        user,
-        context: body.context,
-      })
-      return { ok: true, channel: 'github', fallback: true, issue: { number: issue.number, url: issue.html_url } }
-    }
-
-    // feature (idea/feedback) → GitHub issue
+    // Both bug and feature file a GitHub issue — one path, no provider branching.
     const issue = await createGitHubIssue({
       repo: feedback.github.repo,
       token,
@@ -96,7 +72,30 @@ export default defineEventHandler(async (event): Promise<FeedbackResponse> => {
       user,
       context: body.context,
     })
-    return { ok: true, channel: 'github', issue: { number: issue.number, url: issue.html_url } }
+
+    const result: FeedbackResult = {
+      channel: 'github',
+      issue: { number: issue.number, url: issue.html_url },
+    }
+
+    // Host submit hook: notifications, logging, "my reports" tracking, etc. It
+    // runs after the issue is filed and must never fail the user's submission.
+    const report: FeedbackReport = {
+      type: body.type,
+      message: body.message,
+      severity: body.context?.severity,
+      category: body.context?.category,
+      user,
+      email,
+      app,
+      labels,
+      context: body.context,
+    }
+    await onSubmit(report, result).catch((error) => {
+      console.error('[feedback] onSubmit threw; ignoring', error)
+    })
+
+    return { ok: true, ...result }
   }
   catch (error) {
     // Log server-side; return a clean response that leaks no provider internals.
