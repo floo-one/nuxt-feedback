@@ -22,7 +22,8 @@ const bodySchema = z.object({
       app: z.string().optional(),
       // Never trust client-supplied lengths: cap version and the console buffer.
       version: z.string().max(200).optional(),
-      severity: z.enum(['blocking', 'annoying', 'cosmetic']).optional(),
+      severity: z.enum(['critical', 'blocking', 'annoying', 'cosmetic']).optional(),
+      category: z.enum(['crash', 'visual', 'data', 'performance']).optional(),
       consoleErrors: z.array(z.string().max(500)).max(20).optional(),
       ts: z.string().optional(),
     })
@@ -54,6 +55,7 @@ export default defineEventHandler(async (event): Promise<FeedbackResponse> => {
     type: body.type,
     app,
     severity: body.context?.severity,
+    category: body.context?.category,
     config: feedback.github.labels,
   })
 
@@ -82,11 +84,11 @@ export default defineEventHandler(async (event): Promise<FeedbackResponse> => {
       return { ok: true, channel: 'github', fallback: true, issue: { number: issue.number, url: issue.html_url } }
     }
 
-    // feature → GitHub issue
+    // feature (idea/feedback) → GitHub issue
     const issue = await createGitHubIssue({
       repo: feedback.github.repo,
       token,
-      type: 'feature',
+      type: body.type,
       message: body.message,
       labels,
       app,

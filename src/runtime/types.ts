@@ -7,8 +7,11 @@
 
 export type FeedbackType = 'bug' | 'feature'
 
-/** How badly a bug hurts. Ignored for feature/idea submissions. */
-export type FeedbackSeverity = 'blocking' | 'annoying' | 'cosmetic'
+/** How badly a bug hurts. Ignored for feedback submissions. */
+export type FeedbackSeverity = 'critical' | 'blocking' | 'annoying' | 'cosmetic'
+
+/** What kind of bug it is. Only meaningful for `type: 'bug'`. */
+export type FeedbackCategory = 'crash' | 'visual' | 'data' | 'performance'
 
 export interface FeedbackContext {
   /** Page URL the feedback was sent from. */
@@ -21,6 +24,8 @@ export interface FeedbackContext {
   version?: string
   /** Bug severity picked in the dialog. Only sent for `type: 'bug'`. */
   severity?: FeedbackSeverity
+  /** Bug category picked in the dialog. Only sent for `type: 'bug'`. */
+  category?: FeedbackCategory
   /** Recent client-side console errors (ring buffer). Only sent for bugs. */
   consoleErrors?: string[]
   /** ISO-8601 timestamp of submission. */
@@ -76,6 +81,7 @@ export interface LabelConfig {
   typePrefix: string
   appPrefix: string
   severityPrefix: string
+  categoryPrefix: string
 }
 
 /** Private (server-only) slice of the module config. */

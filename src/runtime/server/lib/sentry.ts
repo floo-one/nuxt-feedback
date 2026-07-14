@@ -32,6 +32,14 @@ export async function captureBugInSentry(args: CaptureBugArgs): Promise<boolean>
   const name = args.user?.name
   const email = args.user?.email || args.email
 
+  // Severity and category are bug-only signals; forward them as searchable tags.
+  const bugTags = {
+    feedbackType: 'bug',
+    ...(args.context?.app ? { app: args.context.app } : {}),
+    ...(args.context?.severity ? { severity: args.context.severity } : {}),
+    ...(args.context?.category ? { category: args.context.category } : {}),
+  }
+
   try {
     if (typeof Sentry.captureFeedback === 'function') {
       Sentry.captureFeedback({
@@ -39,10 +47,7 @@ export async function captureBugInSentry(args: CaptureBugArgs): Promise<boolean>
         name,
         email,
         url: args.context?.url,
-        tags: {
-          feedbackType: 'bug',
-          ...(args.context?.app ? { app: args.context.app } : {}),
-        },
+        tags: bugTags,
       })
     }
     else {
@@ -52,7 +57,7 @@ export async function captureBugInSentry(args: CaptureBugArgs): Promise<boolean>
       }
       Sentry.captureMessage(args.message, {
         level: 'warning',
-        tags: { feedbackType: 'bug' },
+        tags: bugTags,
       })
     }
 

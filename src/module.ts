@@ -22,11 +22,12 @@ export interface ModuleOptions {
      * Issue labels. Two schemes:
      *  - Legacy (default): one label per issue — `feature` (default `enhancement`)
      *    or `bug`.
-     *  - Prefixed: set ANY of `base`/`typePrefix`/`appPrefix`/`severityPrefix` to
-     *    switch on multi-label output — `<base>`, `<typePrefix>bug|idea`,
-     *    `<appPrefix><bucket>` (when an app bucket resolves), and
-     *    `<severityPrefix><level>` (bugs only). Unset prefixes fall back to
-     *    `feedback` / `type:` / `app:` / `severity:`.
+     *  - Prefixed: set ANY of `base`/`typePrefix`/`appPrefix`/`severityPrefix`/
+     *    `categoryPrefix` to switch on multi-label output — `<base>`,
+     *    `<typePrefix>bug|idea`, `<appPrefix><bucket>` (when an app bucket
+     *    resolves), `<severityPrefix><level>` and `<categoryPrefix><kind>` (both
+     *    bugs only). Unset prefixes fall back to
+     *    `feedback` / `type:` / `app:` / `severity:` / `category:`.
      */
     labels?: {
       feature?: string
@@ -34,6 +35,7 @@ export interface ModuleOptions {
       typePrefix?: string
       appPrefix?: string
       severityPrefix?: string
+      categoryPrefix?: string
     }
   }
   /**
@@ -105,6 +107,7 @@ export default defineNuxtModule<ModuleOptions>({
         || l.typePrefix !== undefined
         || l.appPrefix !== undefined
         || l.severityPrefix !== undefined
+        || l.categoryPrefix !== undefined
 
     const runtimeConfig = nuxt.options.runtimeConfig as Record<string, unknown>
     runtimeConfig.feedback = {
@@ -119,6 +122,7 @@ export default defineNuxtModule<ModuleOptions>({
           typePrefix: l.typePrefix ?? 'type:',
           appPrefix: l.appPrefix ?? 'app:',
           severityPrefix: l.severityPrefix ?? 'severity:',
+          categoryPrefix: l.categoryPrefix ?? 'category:',
         },
       },
     }
