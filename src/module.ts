@@ -141,6 +141,11 @@ export default defineNuxtModule<ModuleOptions>({
       name: 'FeedbackDialog',
       filePath: resolver.resolve('./runtime/components/FeedbackDialog.vue'),
     })
+    // The "your reports" history drawer (loop-back to the reporter).
+    addComponent({
+      name: 'FeedbackHistory',
+      filePath: resolver.resolve('./runtime/components/FeedbackHistory.vue'),
+    })
 
     // ---- Composable ---------------------------------------------------------
     addImports({
@@ -165,6 +170,19 @@ export default defineNuxtModule<ModuleOptions>({
       route: '/api/__feedback/identity',
       method: 'get',
       handler: resolver.resolve('./runtime/server/api/identity.get'),
+    })
+    // Refreshes open/closed state for the reports the client filed (history drawer).
+    addServerHandler({
+      route: '/api/__feedback/status',
+      method: 'get',
+      handler: resolver.resolve('./runtime/server/api/status.get'),
+    })
+    // Issue comment thread: GET reads it, POST replies. Both live in one handler
+    // (registering GET+POST on the same route via two calls makes Nitro drop it).
+    // Gated on an identified user inside the handler.
+    addServerHandler({
+      route: '/api/__feedback/thread',
+      handler: resolver.resolve('./runtime/server/api/thread'),
     })
 
     // ---- resolveUser virtual module -----------------------------------------

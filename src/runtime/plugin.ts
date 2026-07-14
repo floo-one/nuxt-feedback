@@ -1,6 +1,8 @@
 import { createVNode, render } from 'vue'
+import type { Component } from 'vue'
 import { defineNuxtPlugin } from '#app'
 import FeedbackDialog from './components/FeedbackDialog.vue'
+import FeedbackHistory from './components/FeedbackHistory.vue'
 import { installConsoleBuffer } from './utils/consoleBuffer'
 import type { PublicFeedbackConfig } from './types'
 
@@ -23,16 +25,24 @@ export default defineNuxtPlugin((nuxtApp) => {
   // time a user opens the dialog to report a bug.
   installConsoleBuffer()
 
-  nuxtApp.hook('app:mounted', () => {
-    if (document.getElementById('floo-feedback-root')) {
+  // Mount a component into a fresh <body> div, reusing the Nuxt app context so
+  // its composables (useState-backed toasts, shared open state) resolve against
+  // the host app. Idempotent per root id.
+  function mount(id: string, component: Component) {
+    if (document.getElementById(id)) {
       return
     }
     const el = document.createElement('div')
-    el.id = 'floo-feedback-root'
+    el.id = id
     document.body.appendChild(el)
 
-    const vnode = createVNode(FeedbackDialog)
+    const vnode = createVNode(component)
     vnode.appContext = nuxtApp.vueApp._context
     render(vnode, el)
+  }
+
+  nuxtApp.hook('app:mounted', () => {
+    mount('floo-feedback-root', FeedbackDialog)
+    mount('floo-feedback-history-root', FeedbackHistory)
   })
 })
