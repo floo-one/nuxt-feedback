@@ -1,4 +1,4 @@
-import type { FeedbackCategory, FeedbackContext, FeedbackSeverity, FeedbackState, FeedbackStatus, FeedbackThread, FeedbackThreadMessage, FeedbackType, LabelConfig, ResolvedUser } from '../../types'
+import type { Breadcrumb, FeedbackCategory, FeedbackContext, FeedbackEnvironment, FeedbackSeverity, FeedbackState, FeedbackStatus, FeedbackThread, FeedbackThreadMessage, FeedbackType, LabelConfig, ResolvedUser } from '../../types'
 
 /** Max issue numbers a single status request will look up. */
 const MAX_STATUS_LOOKUPS = 50
@@ -89,6 +89,29 @@ export function buildReporter(user: ResolvedUser | null, email?: string): string
   return parts.join(' ') || 'anonymous'
 }
 
+/** Compact one-line environment summary, e.g. "Chrome on macOS · 1280x720 · en-US". */
+export function formatEnvironment(env: FeedbackEnvironment): string {
+  const parts: string[] = []
+  if (env.browser) parts.push(env.browser)
+  if (env.viewport) parts.push(`viewport ${env.viewport}`)
+  if (env.screen) parts.push(`screen ${env.screen}`)
+  if (typeof env.dpr === 'number') parts.push(`@${env.dpr}x`)
+  if (env.locale) parts.push(env.locale)
+  if (env.timezone) parts.push(env.timezone)
+  if (typeof env.online === 'boolean') parts.push(env.online ? 'online' : 'offline')
+  return parts.join(' · ')
+}
+
+/** Render the breadcrumb trail as a fenced timeline (short time + kind + text). */
+export function formatBreadcrumbs(breadcrumbs: Breadcrumb[]): string[] {
+  if (breadcrumbs.length === 0) return ['_none captured_']
+  const rows = breadcrumbs.map((b) => {
+    const time = b.t.length >= 19 ? b.t.slice(11, 19) : b.t
+    return `${time}  ${b.kind.padEnd(7)} ${b.text}`
+  })
+  return ['```', ...rows, '```']
+}
+
 export function buildBody(args: CreateIssueArgs): string {
   const { message, user, email, context, app, type } = args
 
@@ -108,20 +131,25 @@ export function buildBody(args: CreateIssueArgs): string {
   // (breadcrumbs, network errors, environment) add more sections in this block.
   const diagnostics: string[] = []
   if (context?.url) diagnostics.push(`**URL:** ${context.url}`)
+  if (context?.environment) diagnostics.push(`**Environment:** ${formatEnvironment(context.environment)}`)
   if (context?.version) diagnostics.push(`**Version:** ${context.version}`)
   if (context?.userAgent) diagnostics.push(`**User agent:** ${context.userAgent}`)
   diagnostics.push(`**Submitted:** ${context?.ts || new Date().toISOString()}`)
 
-  // Bugs carry a client-side console-error ring buffer. Render it explicitly
-  // (including "none captured") so triagers know whether it was empty vs absent.
-  if (type === 'bug' && context?.consoleErrors) {
+  // Bugs carry a client activity trail (clicks, navigations, failed fetches,
+  // console errors). Render it explicitly (including "none captured") so triagers
+  // know whether it was empty vs absent. Older clients may still send the legacy
+  // `consoleErrors` array instead — fall back to it.
+  if (type === 'bug' && context?.breadcrumbs) {
+    diagnostics.push('', '**Recent activity:**', '', ...formatBreadcrumbs(context.breadcrumbs))
+  }
+  else if (type === 'bug' && context?.consoleErrors) {
     diagnostics.push('', '**Recent console errors:**', '')
-    if (context.consoleErrors.length > 0) {
-      diagnostics.push('```', ...context.consoleErrors, '```')
-    }
-    else {
-      diagnostics.push('_none captured_')
-    }
+    diagnostics.push(
+      ...(context.consoleErrors.length > 0
+        ? ['```', ...context.consoleErrors, '```']
+        : ['_none captured_']),
+    )
   }
 
   lines.push(

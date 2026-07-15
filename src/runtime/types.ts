@@ -13,6 +13,36 @@ export type FeedbackSeverity = 'critical' | 'blocking' | 'annoying' | 'cosmetic'
 /** What kind of bug it is. Only meaningful for `type: 'bug'`. */
 export type FeedbackCategory = 'crash' | 'visual' | 'data' | 'performance'
 
+/** What a breadcrumb records. */
+export type BreadcrumbKind = 'click' | 'nav' | 'fetch' | 'console'
+
+/** One entry in the client activity trail. Text is redacted at capture time. */
+export interface Breadcrumb {
+  /** ISO-8601 capture time. */
+  t: string
+  kind: BreadcrumbKind
+  /** Human-readable, already-redacted summary of the event. */
+  text: string
+}
+
+/** Always-on client environment snapshot attached to every report. */
+export interface FeedbackEnvironment {
+  /** Inner window size, e.g. "1280x720". */
+  viewport?: string
+  /** Physical screen size, e.g. "2560x1440". */
+  screen?: string
+  /** Device pixel ratio. */
+  dpr?: number
+  /** Browser UI language, e.g. "en-US". */
+  locale?: string
+  /** IANA timezone, e.g. "Europe/Zurich". */
+  timezone?: string
+  /** Online at submit time. */
+  online?: boolean
+  /** Coarse "Browser on OS", parsed from the user agent. */
+  browser?: string
+}
+
 export interface FeedbackContext {
   /** Page URL the feedback was sent from. */
   url?: string
@@ -26,7 +56,14 @@ export interface FeedbackContext {
   severity?: FeedbackSeverity
   /** Bug category picked in the dialog. Only sent for `type: 'bug'`. */
   category?: FeedbackCategory
-  /** Recent client-side console errors (ring buffer). Only sent for bugs. */
+  /** Client environment snapshot (viewport, device, locale). Sent for all reports. */
+  environment?: FeedbackEnvironment
+  /** Recent client activity trail (clicks, navigations, failed fetches, errors). Only sent for bugs. */
+  breadcrumbs?: Breadcrumb[]
+  /**
+   * @deprecated Superseded by `breadcrumbs` (console errors are captured there
+   * as `kind: 'console'`). Kept for backward compatibility with older clients.
+   */
   consoleErrors?: string[]
   /** ISO-8601 timestamp of submission. */
   ts?: string

@@ -7,7 +7,8 @@ import { useRuntimeConfig } from '#imports'
 // singleton the host auto-imports, so toasts surface through the host's <UApp>.
 import { defineShortcuts, useToast } from '@nuxt/ui/composables'
 import { useFeedback } from '../composables/useFeedback'
-import { getConsoleErrors } from '../utils/consoleBuffer'
+import { getBreadcrumbs } from '../utils/activityBuffer'
+import { collectEnvironment } from '../utils/environment'
 import { recordSubmission } from '../utils/submissionStore'
 import type { FeedbackCategory, FeedbackSeverity, FeedbackType, PublicFeedbackConfig } from '../types'
 
@@ -95,8 +96,9 @@ async function onSubmit() {
         app: config?.app,
         version: config?.version,
         ts: new Date().toISOString(),
-        // Bug-only signals: severity, category + a snapshot of recent console errors.
-        ...(isBug ? { severity: state.severity, category: state.category, consoleErrors: getConsoleErrors() } : {}),
+        // Environment goes on every report; the activity trail is bug-only.
+        environment: collectEnvironment(),
+        ...(isBug ? { severity: state.severity, category: state.category, breadcrumbs: getBreadcrumbs() } : {}),
       },
     })
     const issue = res?.issue

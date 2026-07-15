@@ -24,6 +24,29 @@ const bodySchema = z.object({
       version: z.string().max(200).optional(),
       severity: z.enum(['critical', 'blocking', 'annoying', 'cosmetic']).optional(),
       category: z.enum(['crash', 'visual', 'data', 'performance']).optional(),
+      // Always-on environment snapshot. Cap every field: never trust client lengths.
+      environment: z
+        .object({
+          viewport: z.string().max(20).optional(),
+          screen: z.string().max(20).optional(),
+          dpr: z.number().optional(),
+          locale: z.string().max(35).optional(),
+          timezone: z.string().max(60).optional(),
+          online: z.boolean().optional(),
+          browser: z.string().max(60).optional(),
+        })
+        .partial()
+        .optional(),
+      // Bug-only activity trail. Bounded count + per-entry length.
+      breadcrumbs: z
+        .array(z.object({
+          t: z.string().max(40),
+          kind: z.enum(['click', 'nav', 'fetch', 'console']),
+          text: z.string().max(400),
+        }))
+        .max(50)
+        .optional(),
+      // Deprecated: older clients may still send this; superseded by breadcrumbs.
       consoleErrors: z.array(z.string().max(500)).max(20).optional(),
       ts: z.string().optional(),
     })

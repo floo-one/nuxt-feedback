@@ -3,7 +3,7 @@ import type { Component } from 'vue'
 import { defineNuxtPlugin } from '#app'
 import FeedbackDialog from './components/FeedbackDialog.vue'
 import FeedbackHistory from './components/FeedbackHistory.vue'
-import { installConsoleBuffer } from './utils/consoleBuffer'
+import { installActivityBuffer } from './utils/activityBuffer'
 import type { PublicFeedbackConfig } from './types'
 
 /**
@@ -21,9 +21,9 @@ export default defineNuxtPlugin((nuxtApp) => {
     return
   }
 
-  // Start capturing console errors immediately so the buffer has history by the
-  // time a user opens the dialog to report a bug.
-  installConsoleBuffer()
+  // Start capturing activity (clicks, navigations, failed fetches, console
+  // errors) immediately so a bug report carries the timeline that led to it.
+  installActivityBuffer()
 
   // Mount a component into a fresh <body> div, reusing the Nuxt app context so
   // its composables (useState-backed toasts, shared open state) resolve against
