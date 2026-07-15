@@ -1,6 +1,25 @@
 # Changelog
 
 
+## v0.2.4
+
+[compare changes](https://github.com/floo-one/nuxt-feedback/compare/v0.2.3...v0.2.4)
+
+### 🚀 Enhancements
+
+- Reporter loop-back (My Feedback drawer + two-way GitHub comment thread) ([#6](https://github.com/floo-one/nuxt-feedback/pull/6))
+- Deployable demo site — playground becomes the dashboard app ([#8](https://github.com/floo-one/nuxt-feedback/pull/8))
+- ⚠️  Remove Sentry, add onSubmit hook, restructure issue body ([#7](https://github.com/floo-one/nuxt-feedback/pull/7))
+- Richer submit info (activity breadcrumbs, environment, redaction) ([#9](https://github.com/floo-one/nuxt-feedback/pull/9))
+
+### ⚠️ Breaking Changes
+
+- ⚠️  Remove Sentry, add onSubmit hook, restructure issue body ([#7](https://github.com/floo-one/nuxt-feedback/pull/7))
+
+### ❤️ Contributors
+
+- Floo ([@floo-one](https://github.com/floo-one))
+
 ## v0.2.3
 
 [compare changes](https://github.com/floo-one/nuxt-feedback/compare/v0.2.2...v0.2.3)
