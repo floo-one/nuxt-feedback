@@ -73,6 +73,29 @@ export function stampedSources(el: Element, max = 5): string[] {
   return files
 }
 
+/** Most descendants scanned for dev-mode component info; keeps a huge pick from stalling the page. */
+const MAX_SCANNED = 3000
+
+/**
+ * The app's own component files rendered inside the element, in page order:
+ * what a reporter usually means when they mark a whole area. Read from the
+ * `sourceAttribute` stamps, or Vue's dev-mode bookkeeping when there are none.
+ */
+export function containedSources(el: Element, root?: string, max = 10): string[] {
+  const files = new Set<string>()
+  for (const node of el.querySelectorAll(`[${SOURCE_ATTR}]`)) {
+    if (files.size >= max) break
+    files.add(node.getAttribute(SOURCE_ATTR)!)
+  }
+  if (files.size) return [...files]
+  const nodes = el.querySelectorAll('*')
+  for (let i = 0; i < nodes.length && i < MAX_SCANNED && files.size < max; i++) {
+    const file = (nodes[i] as Element & { __vueParentComponent?: VueInstanceLike }).__vueParentComponent?.type?.__file
+    if (file && !file.includes('/node_modules/')) files.add(relativeFile(file, root))
+  }
+  return [...files]
+}
+
 /**
  * Vue component chain around an element, innermost first: the library component
  * that rendered it (e.g. `UButton`), then the app's own components as
@@ -144,6 +167,10 @@ export function describeElement(el: Element, root?: string): FeedbackElement {
   const chain = componentChain(el, root)
   const components = chain.some(c => c.includes('(')) ? chain : stampedSources(el)
   if (components.length) t.components = components
+  // Files already named by the chain around the element say nothing new about its content.
+  const around = new Set(components.map(c => /\(([^()]+)\)$/.exec(c)?.[1] ?? c))
+  const contains = containedSources(el, root).filter(f => !around.has(f))
+  if (contains.length) t.contains = contains
   return t
 }
 
@@ -162,6 +189,21 @@ export function elementLabel(t: FeedbackElement): string {
 }
 
 const MAX_EDGE = 2000
+/** Largest screenshot data URL sent (~600 KB of JPEG), so a five-element report stays well under common 2-4 MB body limits. */
+const MAX_DATA_URL = 800_000
+
+/** JPEG at decreasing quality, then at half size, until it fits MAX_DATA_URL. */
+export function encodeJpeg(canvas: HTMLCanvasElement): string {
+  for (const quality of [0.8, 0.65, 0.5]) {
+    const url = canvas.toDataURL('image/jpeg', quality)
+    if (url.length <= MAX_DATA_URL) return url
+  }
+  const half = document.createElement('canvas')
+  half.width = Math.max(1, Math.round(canvas.width / 2))
+  half.height = Math.max(1, Math.round(canvas.height / 2))
+  half.getContext('2d')!.drawImage(canvas, 0, 0, half.width, half.height)
+  return half.width < 200 ? half.toDataURL('image/jpeg', 0.5) : encodeJpeg(half)
+}
 
 /**
  * JPEG data URL of the element with some surroundings: small elements are shot
@@ -183,7 +225,7 @@ export async function screenshot(el: Element | null): Promise<string> {
       filter,
       style: { transform: `translateY(-${window.scrollY}px)` },
     })
-    return canvas.toDataURL('image/jpeg', 0.8)
+    return encodeJpeg(canvas)
   }
 
   // Small or flat elements read better with context: shoot the nearest ancestor
@@ -200,7 +242,7 @@ export async function screenshot(el: Element | null): Promise<string> {
   const box = ctx.getBoundingClientRect()
   const scale = Math.min(dpr, MAX_EDGE / Math.max(box.width, box.height, 1))
   const canvas = await domToCanvas(ctx, { scale, backgroundColor, filter })
-  if (ctx === el) return canvas.toDataURL('image/jpeg', 0.8)
+  if (ctx === el) return encodeJpeg(canvas)
 
   // Outline the element, then crop to it plus some surroundings (a wide header would make a logo tiny).
   const r = el.getBoundingClientRect()
@@ -223,7 +265,7 @@ export async function screenshot(el: Element | null): Promise<string> {
   out.width = Math.round(cw)
   out.height = Math.round(ch)
   out.getContext('2d')!.drawImage(canvas, cx, cy, cw, ch, 0, 0, out.width, out.height)
-  return out.toDataURL('image/jpeg', 0.8)
+  return encodeJpeg(out)
 }
 
 /**

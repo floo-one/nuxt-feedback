@@ -313,7 +313,7 @@ export default defineNuxtModule<ModuleOptions>({
           `    email?: string`,
           `    app: string | null`,
           `    labels: string[]`,
-          `    context?: { url?: string, userAgent?: string, app?: string, version?: string, severity?: FeedbackSeverity, category?: FeedbackCategory, elements?: Array<{ selector: string, tag: string, text?: string, alt?: string, href?: string, src?: string, section?: { id?: string, heading?: string }, card?: { title?: string, src?: string }, components?: string[], screenshot?: string }>, screenshot?: string, consoleErrors?: string[], ts?: string }`,
+          `    context?: { url?: string, userAgent?: string, app?: string, version?: string, severity?: FeedbackSeverity, category?: FeedbackCategory, elements?: Array<{ selector: string, tag: string, text?: string, alt?: string, href?: string, src?: string, section?: { id?: string, heading?: string }, card?: { title?: string, src?: string }, components?: string[], contains?: string[], screenshot?: string }>, screenshot?: string, consoleErrors?: string[], ts?: string }`,
           `  }`,
           `  interface FeedbackResult { channel: 'github', issue: { number: number, url: string } }`,
           `  const onSubmit: (report: FeedbackReport, result: FeedbackResult) => Promise<void>`,

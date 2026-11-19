@@ -25,6 +25,7 @@ const elementSchema = z.object({
   section: z.object({ id: z.string().max(200).optional(), heading: z.string().max(200).optional() }).optional(),
   card: z.object({ title: z.string().max(200).optional(), src: z.string().max(1000).optional() }).optional(),
   components: z.array(z.string().max(300)).max(10).optional(),
+  contains: z.array(z.string().max(300)).max(10).optional(),
   screenshot: z.string().max(MAX_SCREENSHOT).optional(),
 })
 

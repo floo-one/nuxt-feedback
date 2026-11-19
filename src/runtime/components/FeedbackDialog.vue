@@ -77,9 +77,18 @@ watch(visible, async (show) => {
 })
 onBeforeUnmount(hideMarkers)
 
+/** The last two path segments of a component file, from `Name (path)` or a bare path. */
+const shortFile = (entry: string) => (/\(([^()]+)\)$/.exec(entry)?.[1] ?? entry).split('/').slice(-2).join('/')
+
+// What the row shows under the label: the components inside a marked area first,
+// then the component around the element, then where on the page it sits.
 function describeSub(el: FeedbackElement): string | undefined {
+  if (el.contains?.length) {
+    const more = el.contains.length - 1
+    return `contains ${shortFile(el.contains[0]!)}${more ? ` +${more}` : ''}`
+  }
   const file = el.components?.find(c => c.includes('/') || c.includes('.vue'))
-  if (file) return (/\(([^()]+)\)$/.exec(file)?.[1] ?? file).split('/').slice(-2).join('/')
+  if (file) return shortFile(file)
   return el.section?.heading ? `in "${el.section.heading}"` : el.selector
 }
 

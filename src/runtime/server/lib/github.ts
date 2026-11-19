@@ -161,7 +161,8 @@ export function formatElement(el: FeedbackElement): string[] {
   const what = el.card?.title ?? el.alt ?? el.text
   rows.push(`- **What:** ${code(`<${el.tag}>`)}${el.card ? ' card' : ''}${what ? ` "${what}"` : ''}`)
   rows.push(`- **Selector:** ${code(el.selector)}`)
-  if (el.components?.length) rows.push(`- **Components:** ${el.components.map(code).join(' ← ')}`)
+  if (el.contains?.length) rows.push(`- **Contains:** ${el.contains.map(code).join(', ')}`)
+  if (el.components?.length) rows.push(`- **Inside:** ${el.components.map(code).join(' ← ')}`)
   if (el.section) {
     const parts = [el.section.heading && `"${el.section.heading}"`, el.section.id && code(`#${el.section.id}`)].filter(Boolean)
     rows.push(`- **Section:** ${parts.join(' ')}`)

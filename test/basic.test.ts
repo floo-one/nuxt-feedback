@@ -156,6 +156,7 @@ describe('buildBody element', () => {
           href: '/checkout',
           section: { id: 'plans', heading: 'Plans' },
           components: ['UButton', 'PricingCard (components/PricingCard.vue)'],
+          contains: ['app/components/PriceTag.vue', 'app/components/Badge.vue'],
           screenshot: 'https://github.com/o/feedback-assets/blob/main/r/2026-11/a-element-1.jpg?raw=true',
         }, { selector: 'h1', tag: 'h1', text: 'Plans' }],
       },
@@ -166,7 +167,8 @@ describe('buildBody element', () => {
     expect(summary).toContain('![Element 1](https://github.com/o/feedback-assets/blob/main/r/2026-11/a-element-1.jpg?raw=true)')
     expect(summary).toContain('- **What:** `<button>` "Buy now"')
     expect(summary).toContain('- **Selector:** `main > section:nth-of-type(2) > div > button`')
-    expect(summary).toContain('`UButton` ← `PricingCard (components/PricingCard.vue)`')
+    expect(summary).toContain('- **Inside:** `UButton` ← `PricingCard (components/PricingCard.vue)`')
+    expect(summary).toContain('- **Contains:** `app/components/PriceTag.vue`, `app/components/Badge.vue`')
     expect(summary).toContain('- **Section:** "Plans" `#plans`')
     expect(summary).toContain('- **Link:** `/checkout`')
   })
