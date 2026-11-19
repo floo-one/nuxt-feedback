@@ -42,15 +42,26 @@ export default defineNuxtPlugin((nuxtApp) => {
     render(vnode, el)
   }
 
-  nuxtApp.hook('app:mounted', async () => {
-    // Logged-in-only hosts: no shortcut or dialog until the server knows the user.
-    if (config?.requireUser) {
-      const identified = await nuxtApp.runWithContext(() => useFeedback().fetchIdentity())
-        .then(r => r.identified)
-        .catch(() => false)
-      if (!identified) return
-    }
+  function mountAll() {
     mount('floo-feedback-root', FeedbackDialog)
     mount('floo-feedback-history-root', FeedbackHistory)
+  }
+
+  // Logged-in-only hosts: no shortcut or panel until the server knows the user.
+  // Signing in usually happens without a full reload, so a logged-out page asks
+  // again after each navigation until it gets a yes.
+  let identified = false
+  async function mountIfIdentified() {
+    if (identified) return
+    identified = await nuxtApp.runWithContext(() => useFeedback().fetchIdentity())
+      .then(r => r.identified)
+      .catch(() => false)
+    if (identified) mountAll()
+  }
+
+  nuxtApp.hook('app:mounted', () => {
+    if (!config?.requireUser) return mountAll()
+    mountIfIdentified()
+    nuxtApp.hook('page:finish', mountIfIdentified)
   })
 })

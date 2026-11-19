@@ -138,6 +138,17 @@ describe('element picker (DOM)', () => {
     expect(describeElement(btn).components).toEqual(['app/components/Card.vue', 'app/pages/index.vue'])
   })
 
+  it('lists the component files inside a marked area, in page order, without the ones around it', () => {
+    document.body.innerHTML = `
+      <div data-fb-src="app/pages/explore.vue"><div id="panel"><div class="body">
+        <table data-fb-src="app/components/AdsTable.vue"><tr><td data-fb-src="app/components/Money.vue">£0</td></tr></table>
+        <p data-fb-src="app/components/Note.vue">x</p><p data-fb-src="app/components/Note.vue">y</p>
+      </div></div></div>`
+    const area = describeElement(document.querySelector('.body')!)
+    expect(area.components).toEqual(['app/pages/explore.vue'])
+    expect(area.contains).toEqual(['app/components/AdsTable.vue', 'app/components/Money.vue', 'app/components/Note.vue'])
+  })
+
   it('ignores the feedback UI and cancels on Escape', async () => {
     mountPage()
     const picking = pickElement()

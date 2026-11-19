@@ -74,6 +74,8 @@ export interface FeedbackElement {
    * From the `sourceAttribute` build stamp, or Vue's dev-mode bookkeeping.
    */
   components?: string[]
+  /** Component files rendered inside the element, in page order: for a marked area, where the problem likely is. */
+  contains?: string[]
   /**
    * Cropped JPEG of the element with a red outline. A data URL from the client;
    * the server swaps it for the uploaded image's URL before filing the issue.

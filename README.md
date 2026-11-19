@@ -81,12 +81,17 @@ number. The issue gets one block per element, above the fold:
 
 - **What:** `<button>` "Buy now"
 - **Selector:** `#plans > div:nth-of-type(2) > button`
-- **Components:** `app/components/PricingCard.vue`
+- **Contains:** `app/components/PriceTag.vue`, `app/components/Badge.vue`
+- **Inside:** `app/components/PricingCard.vue`
 - **Section:** "Plans" `#plans`
 - **Link:** `/checkout`
 
 ![Element 1](https://github.com/acme/feedback-assets/blob/main/shop/2026-11/3f2a9c1e-element-1.jpg?raw=true)
 ```
+
+**Contains** lists the component files rendered inside the picked element, in page
+order: mark a whole area and it names everything in it, which is usually where the
+problem is. **Inside** is the component chain around the element.
 
 **Component files** come from Vue in dev builds. For production builds, set
 `sourceAttribute: true`: each of your components' outermost elements get a
