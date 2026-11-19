@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.3.0
+
+[compare changes](https://github.com/floo-one/nuxt-feedback/compare/v0.2.4...v0.3.0)
+
+### 🚀 Enhancements
+
+- Element picker, docked panel, screenshots and source files ([#10](https://github.com/floo-one/nuxt-feedback/pull/10))
+
+### ❤️ Contributors
+
+- Floo <floo@floo.one>
+
 ## v0.2.4
 
 [compare changes](https://github.com/floo-one/nuxt-feedback/compare/v0.2.3...v0.2.4)
