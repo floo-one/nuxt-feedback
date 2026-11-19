@@ -134,3 +134,10 @@ don't re-discover these.
 - ⏳ Not live-tested (needs real secrets in the host runtime): bug → a visible Sentry
   User Feedback event in `gle-bookings`, and the full Better-Auth identity path in a
   running Booking-Dashboard dev server (needs DB + `NUXT_BETTER_AUTH_SECRET`).
+
+## Stale dev stub (jiti cache)
+
+- `dev:prepare` builds the module as a jiti stub, and jiti caches the transpiled
+  build-time code (`module.ts`, `sourceAttribute.ts`) in `node_modules/.cache/jiti`.
+  After changing build-time code, a demo build can still run the old version.
+  `rm -rf node_modules/.cache/jiti` (or test against `prepack` output) before trusting it.

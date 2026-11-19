@@ -1,4 +1,4 @@
-import type { Breadcrumb, FeedbackCategory, FeedbackContext, FeedbackEnvironment, FeedbackSeverity, FeedbackState, FeedbackStatus, FeedbackThread, FeedbackThreadMessage, FeedbackType, LabelConfig, ResolvedUser } from '../../types'
+import type { Breadcrumb, FeedbackCategory, FeedbackContext, FeedbackElement, FeedbackEnvironment, FeedbackSeverity, FeedbackState, FeedbackStatus, FeedbackThread, FeedbackThreadMessage, FeedbackType, LabelConfig, ResolvedUser } from '../../types'
 
 /** Max issue numbers a single status request will look up. */
 const MAX_STATUS_LOOKUPS = 50
@@ -112,8 +112,70 @@ export function formatBreadcrumbs(breadcrumbs: Breadcrumb[]): string[] {
   return ['```', ...rows, '```']
 }
 
+/** A commit SHA links to that commit in the repo; anything else is shown as is. */
+export function formatVersion(version: string, repo: string): string {
+  return /^[0-9a-f]{7,40}$/.test(version) && repo.includes('/')
+    ? `[${version.slice(0, 7)}](https://github.com/${repo}/commit/${version})`
+    : version
+}
+
+const DATA_URL = /^data:image\/jpeg;base64,([A-Z0-9+/=]+)$/i
+
+/**
+ * Commit a screenshot (JPEG data URL) to the assets repo and return a URL that
+ * renders in the issue for anyone who can read that repo. Paths group by app
+ * repo and month: `<repo name>/2026-11/<random>-element-1.jpg`.
+ */
+export async function uploadScreenshot(args: {
+  assetsRepo: string
+  repo: string
+  token: string
+  dataUrl: string
+  label: string
+}): Promise<string> {
+  const { assetsRepo, repo, token, dataUrl, label } = args
+  const content = DATA_URL.exec(dataUrl)?.[1]
+  if (!content) throw new Error('Screenshot is not a JPEG data URL')
+  const month = new Date().toISOString().slice(0, 7)
+  const path = `${repo.split('/').pop()}/${month}/${crypto.randomUUID().slice(0, 8)}-${label}.jpg`
+  const res = await $fetch<{ content: { html_url: string } }>(
+    `https://api.github.com/repos/${assetsRepo}/contents/${path}`,
+    {
+      method: 'PUT',
+      headers: githubHeaders(token),
+      body: { message: `feedback: ${path}`, content },
+    },
+  )
+  return `${res.content.html_url}?raw=true`
+}
+
+/** Inline code that survives backticks in the value. */
+function code(value: string): string {
+  const fence = value.includes('`') ? '``' : '`'
+  return `${fence}${value}${fence}`
+}
+
+/** The picked element as a list: what it is, where it sits, which components render it. */
+export function formatElement(el: FeedbackElement): string[] {
+  const rows: string[] = []
+  const what = el.card?.title ?? el.alt ?? el.text
+  rows.push(`- **What:** ${code(`<${el.tag}>`)}${el.card ? ' card' : ''}${what ? ` "${what}"` : ''}`)
+  rows.push(`- **Selector:** ${code(el.selector)}`)
+  if (el.components?.length) rows.push(`- **Components:** ${el.components.map(code).join(' ← ')}`)
+  if (el.section) {
+    const parts = [el.section.heading && `"${el.section.heading}"`, el.section.id && code(`#${el.section.id}`)].filter(Boolean)
+    rows.push(`- **Section:** ${parts.join(' ')}`)
+  }
+  if (el.href) rows.push(`- **Link:** ${code(el.href)}`)
+  const src = el.src ?? el.card?.src
+  if (src) rows.push(`- **Image:** ${code(src)}${el.natural ? ` (${el.natural.width}x${el.natural.height} intrinsic)` : ''}`)
+  if (el.rect) rows.push(`- **Size:** ${el.rect.width}x${el.rect.height}`)
+  return rows
+}
+
 export function buildBody(args: CreateIssueArgs): string {
   const { message, user, email, context, app, type } = args
+  const elements = context?.elements ?? []
 
   // Top-level summary: the human-readable essentials, always visible.
   const lines = [
@@ -126,13 +188,18 @@ export function buildBody(args: CreateIssueArgs): string {
   if (appName) lines.push(`**App:** ${appName}`)
   if (type === 'bug' && context?.severity) lines.push(`**Severity:** ${context.severity}`)
   if (type === 'bug' && context?.category) lines.push(`**Type:** ${context.category}`)
+  if (context?.url) lines.push(`**Page:** ${context.url}`)
+  elements.forEach((el, i) => {
+    lines.push('', `**Element ${i + 1}:**`, '', ...formatElement(el))
+    if (el.screenshot) lines.push('', `![Element ${i + 1}](${el.screenshot})`)
+  })
+  if (context?.screenshot) lines.push('', '**Screenshot:**', '', `![Page](${context.screenshot})`)
 
   // Diagnostics: collapsed by default so the issue stays readable. Later steps
   // (breadcrumbs, network errors, environment) add more sections in this block.
   const diagnostics: string[] = []
-  if (context?.url) diagnostics.push(`**URL:** ${context.url}`)
   if (context?.environment) diagnostics.push(`**Environment:** ${formatEnvironment(context.environment)}`)
-  if (context?.version) diagnostics.push(`**Version:** ${context.version}`)
+  if (context?.version) diagnostics.push(`**Version:** ${formatVersion(context.version, args.repo)}`)
   if (context?.userAgent) diagnostics.push(`**User agent:** ${context.userAgent}`)
   diagnostics.push(`**Submitted:** ${context?.ts || new Date().toISOString()}`)
 
