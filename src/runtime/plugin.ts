@@ -4,6 +4,7 @@ import { defineNuxtPlugin } from '#app'
 import FeedbackDialog from './components/FeedbackDialog.vue'
 import FeedbackHistory from './components/FeedbackHistory.vue'
 import { installActivityBuffer } from './utils/activityBuffer'
+import { useFeedback } from './composables/useFeedback'
 import type { PublicFeedbackConfig } from './types'
 
 /**
@@ -41,7 +42,14 @@ export default defineNuxtPlugin((nuxtApp) => {
     render(vnode, el)
   }
 
-  nuxtApp.hook('app:mounted', () => {
+  nuxtApp.hook('app:mounted', async () => {
+    // Logged-in-only hosts: no shortcut or dialog until the server knows the user.
+    if (config?.requireUser) {
+      const identified = await nuxtApp.runWithContext(() => useFeedback().fetchIdentity())
+        .then(r => r.identified)
+        .catch(() => false)
+      if (!identified) return
+    }
     mount('floo-feedback-root', FeedbackDialog)
     mount('floo-feedback-history-root', FeedbackHistory)
   })

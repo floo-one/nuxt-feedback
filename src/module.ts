@@ -7,17 +7,44 @@ import {
   addServerHandler,
   addTypeTemplate,
 } from '@nuxt/kit'
+import { sourceAttributeTransform } from './sourceAttribute'
 import type { PublicFeedbackConfig } from './runtime/types'
 
 export interface ModuleOptions {
   /**
-   * Keyboard shortcut to open the dialog, in Nuxt UI `defineShortcuts` syntax.
+   * Keyboard shortcut that starts the element picker; the panel opens on the
+   * pick (Escape opens it without one). Nuxt UI `defineShortcuts` syntax.
    * Default `'g-f'` (chosen to avoid colliding with common dashboard chords).
    */
   shortcut?: string
+  /**
+   * Only identified users (the `resolveUserPath` hook returns a user) get the
+   * shortcut and dialog, and the server rejects anonymous reports with 401.
+   * Default `false`.
+   */
+  requireUser?: boolean
+  /**
+   * Capture a screenshot of each picked element (or the viewport when nothing
+   * was picked) and show it in the issue. Images are committed to
+   * `github.assetsRepo`; a failed upload files the issue without them.
+   * Default `true`.
+   */
+  screenshots?: boolean
+  /**
+   * Stamp the root element of each of your own components with
+   * `data-fb-src="<file>"` at build time, so reports from production builds name
+   * the component file. The paths are visible in the page HTML. Default `false`.
+   */
+  sourceAttribute?: boolean
   github?: {
     /** Target repository for issues, as `"owner/name"`. Required for feature requests. */
     repo: string
+    /**
+     * Repository screenshots are committed to, as `"owner/name"`. Default
+     * `"<owner of repo>/feedback-assets"`. Keep it private; the token needs
+     * Contents: read and write on it.
+     */
+    assetsRepo?: string
     /**
      * Issue labels. Two schemes:
      *  - Legacy (default): one label per issue — `feature` (default `enhancement`)
@@ -113,9 +140,16 @@ export default defineNuxtModule<ModuleOptions>({
         || l.categoryPrefix !== undefined
 
     const runtimeConfig = nuxt.options.runtimeConfig as Record<string, unknown>
+    const repo = options.github?.repo ?? ''
+    const screenshots = options.screenshots ?? true
+    const assetsRepo = options.github?.assetsRepo || (repo.includes('/') ? `${repo.split('/')[0]}/feedback-assets` : '')
     runtimeConfig.feedback = {
+      requireUser: options.requireUser ?? false,
+      // Coolify passes SOURCE_COMMIT as a build arg; the server prefers the runtime env.
+      buildCommit: process.env.SOURCE_COMMIT || undefined,
       github: {
-        repo: options.github?.repo ?? '',
+        repo,
+        assetsRepo: screenshots ? assetsRepo : '',
         labels: {
           bug: 'bug',
           feature: l.feature || 'enhancement',
@@ -135,11 +169,24 @@ export default defineNuxtModule<ModuleOptions>({
     const appTitle = nuxt.options.app?.head?.title
     const publicConfig: PublicFeedbackConfig = {
       shortcut: options.shortcut || 'g-f',
+      // Dev only: component files are only known in dev, and a prod bundle shouldn't carry a local path.
+      sourceRoot: nuxt.options.dev ? nuxt.options.workspaceDir : undefined,
+      requireUser: options.requireUser ?? false,
+      screenshots: screenshots && !!assetsRepo,
       enabled: options.enabled ?? true,
       app: typeof appTitle === 'string' && appTitle ? appTitle : undefined,
       version: options.version || undefined,
     }
     ;(nuxt.options.runtimeConfig.public as Record<string, unknown>).feedback = publicConfig
+
+    // ---- Source attribute -----------------------------------------------------
+    // Production only: dev builds name components from Vue's own bookkeeping, and
+    // Vue warns in dev when a fragment-rooted component can't place the attribute.
+    if (options.sourceAttribute && !nuxt.options.dev) {
+      nuxt.options.vue.compilerOptions ??= {}
+      const transforms = (nuxt.options.vue.compilerOptions.nodeTransforms ??= [])
+      transforms.push(sourceAttributeTransform(nuxt.options.workspaceDir) as unknown as (typeof transforms)[number])
+    }
 
     // ---- Component ----------------------------------------------------------
     // Registered globally so hosts can also place <FeedbackDialog /> manually.
@@ -266,7 +313,7 @@ export default defineNuxtModule<ModuleOptions>({
           `    email?: string`,
           `    app: string | null`,
           `    labels: string[]`,
-          `    context?: { url?: string, userAgent?: string, app?: string, version?: string, severity?: FeedbackSeverity, category?: FeedbackCategory, consoleErrors?: string[], ts?: string }`,
+          `    context?: { url?: string, userAgent?: string, app?: string, version?: string, severity?: FeedbackSeverity, category?: FeedbackCategory, elements?: Array<{ selector: string, tag: string, text?: string, alt?: string, href?: string, src?: string, section?: { id?: string, heading?: string }, card?: { title?: string, src?: string }, components?: string[], screenshot?: string }>, screenshot?: string, consoleErrors?: string[], ts?: string }`,
           `  }`,
           `  interface FeedbackResult { channel: 'github', issue: { number: number, url: string } }`,
           `  const onSubmit: (report: FeedbackReport, result: FeedbackResult) => Promise<void>`,

@@ -1,5 +1,7 @@
-import { describe, it, expect } from 'vitest'
-import { REPORTER_MARKER, buildBody, buildCommentBody, buildLabels, buildReporter, buildTitle, formatBreadcrumbs, formatEnvironment, mapThreadMessage, parseIssueNumbers } from '../src/runtime/server/lib/github'
+import { describe, it, expect, vi } from 'vitest'
+import { compileTemplate } from '@vue/compiler-sfc'
+import { sourceAttributeTransform } from '../src/sourceAttribute'
+import { REPORTER_MARKER, buildBody, buildCommentBody, buildLabels, buildReporter, buildTitle, formatBreadcrumbs, formatElement, formatEnvironment, formatVersion, uploadScreenshot, mapThreadMessage, parseIssueNumbers } from '../src/runtime/server/lib/github'
 import type { CreateIssueArgs } from '../src/runtime/server/lib/github'
 import { applyStates, capSubmissions, hasUnread } from '../src/runtime/utils/submissionStore'
 import { redact } from '../src/runtime/utils/redact'
@@ -101,11 +103,11 @@ describe('buildBody', () => {
 
     const summary = body.slice(0, body.indexOf('<details>'))
     const details = body.slice(body.indexOf('<details>'))
-    // Reporter / App / Severity stay above the fold; URL / Version / Submitted collapse.
+    // Reporter / App / Severity / Page stay above the fold; Version / Submitted collapse.
     expect(summary).toContain('**Reporter:**')
+    expect(summary).toContain('**Page:** https://app/x')
     expect(summary).toContain('**App:** booking')
     expect(summary).toContain('**Severity:** blocking')
-    expect(details).toContain('**URL:** https://app/x')
     expect(details).toContain('**Version:** abc123')
     expect(details).toContain('**Submitted:**')
   })
@@ -129,6 +131,110 @@ describe('buildBody', () => {
     expect(body).not.toContain('**Severity:**')
     expect(body).not.toContain('**Type:**')
     expect(body).not.toContain('Recent console errors')
+  })
+})
+
+describe('buildBody element', () => {
+  const base = {
+    repo: 'o/r',
+    token: 't',
+    type: 'feature' as const,
+    message: 'Wrong price',
+    labels: [],
+    user: null,
+  }
+
+  it('lists the picked element above the fold', () => {
+    const body = buildBody({
+      ...base,
+      context: {
+        url: 'https://app/pricing',
+        elements: [{
+          selector: 'main > section:nth-of-type(2) > div > button',
+          tag: 'button',
+          text: 'Buy now',
+          href: '/checkout',
+          section: { id: 'plans', heading: 'Plans' },
+          components: ['UButton', 'PricingCard (components/PricingCard.vue)'],
+          screenshot: 'https://github.com/o/feedback-assets/blob/main/r/2026-11/a-element-1.jpg?raw=true',
+        }, { selector: 'h1', tag: 'h1', text: 'Plans' }],
+      },
+    })
+    const summary = body.slice(0, body.indexOf('<details>'))
+    expect(summary).toContain('**Element 1:**')
+    expect(summary).toContain('**Element 2:**')
+    expect(summary).toContain('![Element 1](https://github.com/o/feedback-assets/blob/main/r/2026-11/a-element-1.jpg?raw=true)')
+    expect(summary).toContain('- **What:** `<button>` "Buy now"')
+    expect(summary).toContain('- **Selector:** `main > section:nth-of-type(2) > div > button`')
+    expect(summary).toContain('`UButton` ← `PricingCard (components/PricingCard.vue)`')
+    expect(summary).toContain('- **Section:** "Plans" `#plans`')
+    expect(summary).toContain('- **Link:** `/checkout`')
+  })
+
+  it('omits the element block when nothing was picked', () => {
+    expect(buildBody({ ...base, context: {} })).not.toContain('**Element')
+  })
+
+  it('describes a covered card by its title and keeps backticks intact', () => {
+    const lines = formatElement({ selector: 'a > span', tag: 'span', card: { title: 'Garden `design`' } })
+    expect(lines[0]).toBe('- **What:** `<span>` card "Garden `design`"')
+    expect(formatElement({ selector: 'a[href=`x`]', tag: 'a' })[1]).toBe('- **Selector:** ``a[href=`x`]``')
+  })
+})
+
+describe('formatVersion', () => {
+  it('links a commit sha to the repo and shortens it', () => {
+    expect(formatVersion('0123456789abcdef0123456789abcdef01234567', 'o/r'))
+      .toBe('[0123456](https://github.com/o/r/commit/0123456789abcdef0123456789abcdef01234567)')
+  })
+  it('shows anything else as is', () => {
+    expect(formatVersion('dashboard-dev', 'o/r')).toBe('dashboard-dev')
+  })
+})
+
+describe('uploadScreenshot', () => {
+  it('commits the JPEG to the assets repo under <repo>/<month>/ and returns a raw blob url', async () => {
+    const calls: Array<{ url: string, opts: { method: string, body: { content: string } } }> = []
+    vi.stubGlobal('$fetch', async (url: string, opts: { method: string, body: { content: string } }) => {
+      calls.push({ url, opts })
+      return { content: { html_url: `https://github.com/o/feedback-assets/blob/main/${url.split('/contents/')[1]}` } }
+    })
+    const url = await uploadScreenshot({ assetsRepo: 'o/feedback-assets', repo: 'o/app', token: 't', dataUrl: 'data:image/jpeg;base64,QUJD', label: 'element-1' })
+    expect(calls[0]!.url).toMatch(/^https:\/\/api\.github\.com\/repos\/o\/feedback-assets\/contents\/app\/\d{4}-\d{2}\/[0-9a-f]{8}-element-1\.jpg$/)
+    expect(calls[0]!.opts.method).toBe('PUT')
+    expect(calls[0]!.opts.body.content).toBe('QUJD')
+    expect(url).toMatch(/\?raw=true$/)
+    vi.unstubAllGlobals()
+  })
+
+  it('rejects anything that is not a JPEG data URL', async () => {
+    await expect(uploadScreenshot({ assetsRepo: 'o/a', repo: 'o/app', token: 't', dataUrl: 'https://evil/x.jpg', label: 'page' })).rejects.toThrow()
+  })
+})
+
+describe('sourceAttributeTransform', () => {
+  const compile = (filename: string, template: string) =>
+    compileTemplate({ id: 'x', filename, source: template, compilerOptions: { nodeTransforms: [sourceAttributeTransform('/repo') as never] } }).code
+
+  it('stamps root elements of own components with the workspace-relative path', () => {
+    const code = compile('/repo/apps/web/app/components/Card.vue', '<div><span>x</span></div>')
+    expect(code).toContain('"data-fb-src": "apps/web/app/components/Card.vue"')
+    expect(code.match(/data-fb-src/g)).toHaveLength(1)
+  })
+
+  it('looks through wrapper components and slot templates to the outermost native elements', () => {
+    const code = compile('/repo/app/app.vue', '<UApp><UContainer><div><h1>x</h1></div></UContainer><template v-if="ok"><p>y</p></template></UApp>')
+    expect(code.match(/data-fb-src/g)).toHaveLength(2)
+    expect(code).not.toMatch(/_component_UApp, \{ "data-fb-src"/)
+  })
+
+  it('stamps a root element that carries v-if or v-for', () => {
+    expect(compile('/repo/app/A.vue', '<div v-if="a">x</div><p v-else>y</p>').match(/data-fb-src/g)).toHaveLength(2)
+    expect(compile('/repo/app/B.vue', '<li v-for="i in 3" :key="i">{{ i }}</li>').match(/data-fb-src/g)).toHaveLength(1)
+  })
+
+  it('leaves library components alone', () => {
+    expect(compile('/repo/node_modules/@nuxt/ui/Button.vue', '<button>x</button>')).not.toContain('data-fb-src')
   })
 })
 

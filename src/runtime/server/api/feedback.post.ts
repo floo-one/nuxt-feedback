@@ -4,8 +4,29 @@ import { useRuntimeConfig } from '#imports'
 import resolveUser from '#feedback/resolve-user'
 import resolveApp from '#feedback/resolve-app'
 import onSubmit from '#feedback/on-submit'
-import { buildLabels, createGitHubIssue } from '../lib/github'
+import { buildLabels, createGitHubIssue, uploadScreenshot } from '../lib/github'
 import type { FeedbackReport, FeedbackResponse, FeedbackResult, PrivateFeedbackConfig } from '../../types'
+
+/** Largest screenshot data URL accepted (about 2 MB of JPEG). */
+const MAX_SCREENSHOT = 2_800_000
+
+const size = z.object({ width: z.number(), height: z.number() })
+
+// The picked element. Every string is capped: it comes straight from the page.
+const elementSchema = z.object({
+  selector: z.string().max(1000),
+  tag: z.string().max(40),
+  text: z.string().max(300).optional(),
+  alt: z.string().max(300).optional(),
+  href: z.string().max(1000).optional(),
+  src: z.string().max(1000).optional(),
+  rect: size.optional(),
+  natural: size.optional(),
+  section: z.object({ id: z.string().max(200).optional(), heading: z.string().max(200).optional() }).optional(),
+  card: z.object({ title: z.string().max(200).optional(), src: z.string().max(1000).optional() }).optional(),
+  components: z.array(z.string().max(300)).max(10).optional(),
+  screenshot: z.string().max(MAX_SCREENSHOT).optional(),
+})
 
 const bodySchema = z.object({
   type: z.enum(['bug', 'feature']),
@@ -37,6 +58,8 @@ const bodySchema = z.object({
         })
         .partial()
         .optional(),
+      elements: z.array(elementSchema).max(5).optional(),
+      screenshot: z.string().max(MAX_SCREENSHOT).optional(),
       // Bug-only activity trail. Bounded count + per-entry length.
       breadcrumbs: z
         .array(z.object({
@@ -73,12 +96,40 @@ export default defineEventHandler(async (event): Promise<FeedbackResponse> => {
     return null
   })) || body.context?.app || null
 
+  if (feedback.requireUser && !user) {
+    setResponseStatus(event, 401)
+    return { ok: false }
+  }
+
+  // The build commit comes from the server, never the page: Coolify sets SOURCE_COMMIT.
+  const build = process.env.SOURCE_COMMIT || feedback.buildCommit
+  const context = body.context ? { ...body.context } : undefined
+  if (context && build) context.version = build
+
+  // Screenshots go to the assets repo first; a failed upload drops the image, not the report.
+  if (context) {
+    const upload = async (dataUrl: string | undefined, label: string) => {
+      if (!dataUrl || !feedback.github.assetsRepo) return undefined
+      return uploadScreenshot({ assetsRepo: feedback.github.assetsRepo, repo: feedback.github.repo, token, dataUrl, label })
+        .catch((error) => {
+          console.error('[feedback] screenshot upload failed; filing without it', error)
+          return undefined
+        })
+    }
+    const [page, ...shots] = await Promise.all([
+      upload(context.screenshot, 'page'),
+      ...(context.elements ?? []).map((e, i) => upload(e.screenshot, `element-${i + 1}`)),
+    ])
+    context.screenshot = page
+    context.elements = context.elements?.map((e, i) => ({ ...e, screenshot: shots[i] }))
+  }
+
   const email = body.email || undefined
   const labels = buildLabels({
     type: body.type,
     app,
-    severity: body.context?.severity,
-    category: body.context?.category,
+    severity: context?.severity,
+    category: context?.category,
     config: feedback.github.labels,
   })
 
@@ -93,7 +144,7 @@ export default defineEventHandler(async (event): Promise<FeedbackResponse> => {
       app,
       email,
       user,
-      context: body.context,
+      context,
     })
 
     const result: FeedbackResult = {
@@ -106,13 +157,13 @@ export default defineEventHandler(async (event): Promise<FeedbackResponse> => {
     const report: FeedbackReport = {
       type: body.type,
       message: body.message,
-      severity: body.context?.severity,
-      category: body.context?.category,
+      severity: context?.severity,
+      category: context?.category,
       user,
       email,
       app,
       labels,
-      context: body.context,
+      context,
     }
     await onSubmit(report, result).catch((error) => {
       console.error('[feedback] onSubmit threw; ignoring', error)

@@ -2,6 +2,7 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { getBreadcrumbs, installActivityBuffer } from '../src/runtime/utils/activityBuffer'
 import { collectEnvironment } from '../src/runtime/utils/environment'
+import { cssPath, describeElement, elementLabel, pickElement, stampedSources } from '../src/runtime/utils/elementPicker'
 
 /**
  * Exercises the DOM-facing capture code against a simulated browser (happy-dom),
@@ -78,5 +79,70 @@ describe('collectEnvironment (DOM)', () => {
     expect(env!.viewport).toMatch(/^\d+x\d+$/)
     expect(typeof env!.timezone).toBe('string')
     expect(typeof env!.browser).toBe('string')
+  })
+})
+
+describe('element picker (DOM)', () => {
+  function mountPage() {
+    document.body.innerHTML = `
+      <main>
+        <section id="plans">
+          <h2>Plans</h2>
+          <div><button>Starter</button><button>Pro <svg><path d="M0 0"/></svg></button></div>
+          <div class="card"><h3 data-slot="title">Garden design</h3><img src="/g.jpg" alt=""><a href="/garden" aria-label=""><span class="absolute"></span></a></div>
+        </section>
+      </main>
+      <div id="floo-feedback-root"><button>Send</button></div>`
+  }
+
+  it('builds a css path up to the nearest id, with nth-of-type for siblings', () => {
+    mountPage()
+    const pro = document.querySelectorAll('button')[1]!
+    expect(cssPath(pro)).toBe('#plans > div:nth-of-type(1) > button:nth-of-type(2)')
+  })
+
+  it('describes text, section and link', () => {
+    mountPage()
+    const el = describeElement(document.querySelector('button')!)
+    expect(el.tag).toBe('button')
+    expect(el.section).toEqual({ id: 'plans', heading: 'Plans' })
+    expect(elementLabel(el)).toBe('Button: "Starter"')
+  })
+
+  it('describes a pick on an empty card overlay link by the card', () => {
+    mountPage()
+    const el = describeElement(document.querySelector('a span')!)
+    expect(el.href).toBe('/garden')
+    expect(el.card?.title).toBe('Garden design')
+    expect(elementLabel(el)).toBe('Card: "Garden design"')
+  })
+
+  it('picks on click, swallows it, and widens svg parts to the svg', async () => {
+    mountPage()
+    const pro = document.querySelectorAll('button')[1]!
+    const pageClick = vi.fn()
+    pro.addEventListener('click', pageClick)
+    const picking = pickElement()
+    document.querySelector('path')!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    const picked = await picking
+    expect(picked?.tagName.toLowerCase()).toBe('svg')
+    expect(pageClick).not.toHaveBeenCalled()
+    expect(document.querySelector('[data-feedback-ui]')).toBeNull()
+  })
+
+  it('reads build-stamped component files, innermost first, when Vue has no dev info', () => {
+    document.body.innerHTML = `
+      <div data-fb-src="app/pages/index.vue"><div data-fb-src="app/components/Card.vue"><button>Go</button></div></div>`
+    const btn = document.querySelector('button')!
+    expect(stampedSources(btn)).toEqual(['app/components/Card.vue', 'app/pages/index.vue'])
+    expect(describeElement(btn).components).toEqual(['app/components/Card.vue', 'app/pages/index.vue'])
+  })
+
+  it('ignores the feedback UI and cancels on Escape', async () => {
+    mountPage()
+    const picking = pickElement()
+    document.querySelector('#floo-feedback-root button')!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    expect(await picking).toBeNull()
   })
 })

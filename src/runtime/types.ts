@@ -43,6 +43,44 @@ export interface FeedbackEnvironment {
   browser?: string
 }
 
+/**
+ * The page element the reporter pointed at with the picker. Everything here is
+ * read from the live DOM to help find the code behind it: the CSS path, the Vue
+ * components it sits in, and what the reporter saw (text, image, card, section).
+ */
+export interface FeedbackElement {
+  /** Readable CSS path, up to the nearest id or landmark. */
+  selector: string
+  /** Lowercase tag name, e.g. "button". */
+  tag: string
+  /** Visible text, collapsed and clipped. */
+  text?: string
+  /** aria-label or image alt. */
+  alt?: string
+  /** href of the element or its closest link. */
+  href?: string
+  /** Image source, when the element is (or directly wraps) an image. */
+  src?: string
+  /** Rendered size in CSS pixels. */
+  rect?: { width: number, height: number }
+  /** Intrinsic image size, for images. */
+  natural?: { width: number, height: number }
+  /** Nearest enclosing <section>: its id and first heading. */
+  section?: { id?: string, heading?: string }
+  /** The card under an empty overlay link (Nuxt UI linked cards). */
+  card?: { title?: string, src?: string }
+  /**
+   * Component chain, innermost first, e.g. ["UButton", "PricingCard (app/components/PricingCard.vue)"].
+   * From the `sourceAttribute` build stamp, or Vue's dev-mode bookkeeping.
+   */
+  components?: string[]
+  /**
+   * Cropped JPEG of the element with a red outline. A data URL from the client;
+   * the server swaps it for the uploaded image's URL before filing the issue.
+   */
+  screenshot?: string
+}
+
 export interface FeedbackContext {
   /** Page URL the feedback was sent from. */
   url?: string
@@ -58,6 +96,10 @@ export interface FeedbackContext {
   category?: FeedbackCategory
   /** Client environment snapshot (viewport, device, locale). Sent for all reports. */
   environment?: FeedbackEnvironment
+  /** The elements the reporter pointed at, in pick order. */
+  elements?: FeedbackElement[]
+  /** Viewport JPEG when nothing was picked. Data URL from the client, image URL on the server. */
+  screenshot?: string
   /** Recent client activity trail (clicks, navigations, failed fetches, errors). Only sent for bugs. */
   breadcrumbs?: Breadcrumb[]
   /**
@@ -126,10 +168,16 @@ export interface ResolvedUser {
 /** Public (client-exposed) slice of the module config. Never contains secrets. */
 export interface PublicFeedbackConfig {
   shortcut: string
+  /** Workspace root in dev builds, to show component files as relative paths. Unset in production. */
+  sourceRoot?: string
   enabled: boolean
   app?: string
   /** Host build identifier (git SHA); the dialog attaches it to every report. */
   version?: string
+  /** Only identified users get the shortcut and dialog; the server rejects anonymous reports. */
+  requireUser?: boolean
+  /** Capture screenshots of picked elements (or the viewport) and attach them to the issue. */
+  screenshots?: boolean
 }
 
 /**
@@ -150,8 +198,13 @@ export interface LabelConfig {
 
 /** Private (server-only) slice of the module config. */
 export interface PrivateFeedbackConfig {
+  requireUser: boolean
+  /** Build commit baked in at build time (SOURCE_COMMIT); runtime SOURCE_COMMIT wins. */
+  buildCommit?: string
   github: {
     repo: string
+    /** Repo screenshots are committed to, `"owner/name"`. Empty = screenshots off. */
+    assetsRepo: string
     labels: LabelConfig
   }
 }

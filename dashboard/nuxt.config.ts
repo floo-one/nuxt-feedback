@@ -14,6 +14,7 @@ export default defineNuxtConfig({
   feedback: {
     shortcut: 'g-f',
     version: 'dashboard-dev',
+    sourceAttribute: true,
     github: {
       repo: 'floo-one/nuxt-feedback',
       labels: { base: 'feedback' },
