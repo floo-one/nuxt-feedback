@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.3.1
+
+[compare changes](https://github.com/floo-one/nuxt-feedback/compare/v0.3.0...v0.3.1)
+
+### 🚀 Enhancements
+
+- List the components inside a picked area ([#11](https://github.com/floo-one/nuxt-feedback/pull/11))
+
+### ❤️ Contributors
+
+- Floo <floo@floo.one>
+
 ## v0.3.0
 
 [compare changes](https://github.com/floo-one/nuxt-feedback/compare/v0.2.4...v0.3.0)
